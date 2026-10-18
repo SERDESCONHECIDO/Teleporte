@@ -26,23 +26,26 @@ namespace PressurePlateTeleporter
             _orderedPlates.Clear();
         }
 
-        private void OnObjectListChanged(object sender, WorldObjectListChangedEventArgs e)
+        // O tipo correto é ObjectListChangedEventArgs, e não WorldObjectListChangedEventArgs
+        private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
+            // Quando uma placa é colocada no chão
             foreach (var added in e.Added)
             {
                 if (added.Value.QualifiedItemId == ItemId)
                 {
                     string key = $"{e.Location.NameOrUniqueName}|{added.Key.X}|{added.Key.Y}";
-                    _orderedPlates.Add(key);
+                    _orderedPlates.Add(key); // Adiciona no final da fila
                 }
             }
 
+            // Quando uma placa é quebrada/retirada
             foreach (var removed in e.Removed)
             {
                 if (removed.Value.QualifiedItemId == ItemId)
                 {
                     string key = $"{e.Location.NameOrUniqueName}|{removed.Key.X}|{removed.Key.Y}";
-                    _orderedPlates.Remove(key);
+                    _orderedPlates.Remove(key); // Remove da fila
                 }
             }
         }
