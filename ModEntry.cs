@@ -1,115 +1,94 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
-using StardewValley.Objects;
 using Microsoft.Xna.Framework;
 
-namespace TeleportPairs
+namespace PressurePlateTeleporter
 {
     public class ModEntry : Mod
     {
-        private const string ItemId = "(BC)Teleportador_Item";
+        private const string ItemId = "(BC)PressurePlate_Item";
 
-        private readonly List<string> _unpairedPads = new();
-        private readonly Dictionary<string, string> _connectedPairs = new();
+        // Lista que guarda a ORDEM em que as placas foram colocadas
+        private readonly List<string> _orderedPlates = new();
+        
+        // Trava de tempo para evitar loop infinito de teleporte
+        private int _warpCooldown = 0;
 
         public override void Entry(IModHelper helper)
         {
             helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
             helper.Events.World.ObjectListChanged += OnObjectListChanged;
-            helper.Events.Input.ButtonPressed += OnButtonPressed;
+            helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         }
 
         private void OnSaveLoaded(object sender, SaveLoadedEventArgs e)
         {
-            _unpairedPads.Clear();
-            _connectedPairs.Clear();
+            _orderedPlates.Clear();
         }
 
         private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
+            // Quando uma placa é colocada no chão
             foreach (var added in e.Added)
             {
                 if (added.Value.QualifiedItemId == ItemId)
                 {
                     string key = $"{e.Location.NameOrUniqueName}|{added.Key.X}|{added.Key.Y}";
-                    RegisterNewPad(key);
+                    _orderedPlates.Add(key); // Adiciona no final da fila
                 }
             }
 
+            // Quando uma placa é quebrada/retirada
             foreach (var removed in e.Removed)
             {
                 if (removed.Value.QualifiedItemId == ItemId)
                 {
                     string key = $"{e.Location.NameOrUniqueName}|{removed.Key.X}|{removed.Key.Y}";
-                    UnregisterPad(key);
+                    _orderedPlates.Remove(key); // Remove da fila, e a próxima assume o lugar
                 }
             }
         }
 
-        private void RegisterNewPad(string newPadKey)
+        private void OnUpdateTicked(object sender, UpdateTickedEventArgs e)
         {
-            if (_unpairedPads.Count > 0)
+            // Se o jogo acabou de teleportar, conta 1 segundo (60 ticks) antes de checar de novo
+            if (_warpCooldown > 0)
             {
-                string partnerKey = _unpairedPads[0];
-                _unpairedPads.RemoveAt(0);
-
-                _connectedPairs[newPadKey] = partnerKey;
-                _connectedPairs[partnerKey] = newPadKey;
-                Game1.showGlobalMessage("Dois teletransportadores foram conectados!");
-            }
-            else
-            {
-                _unpairedPads.Add(newPadKey);
-                Game1.showGlobalMessage("Teletransportador aguardando conexão...");
-            }
-        }
-
-        private void UnregisterPad(string brokenPadKey)
-        {
-            if (_unpairedPads.Contains(brokenPadKey))
-            {
-                _unpairedPads.Remove(brokenPadKey);
+                _warpCooldown--;
                 return;
             }
 
-            if (_connectedPairs.TryGetValue(brokenPadKey, out var partnerKey))
+            if (!Context.IsWorldReady || !Context.IsPlayerFree) return;
+
+            // Pega a posição exata onde o jogador está pisando
+            string currentKey = $"{Game1.currentLocation.NameOrUniqueName}|{(int)Game1.player.Tile.X}|{(int)Game1.player.Tile.Y}";
+
+            // Verifica se ele pisou em uma das nossas placas
+            int index = _orderedPlates.IndexOf(currentKey);
+            
+            if (index != -1)
             {
-                _connectedPairs.Remove(brokenPadKey);
-                _connectedPairs.Remove(partnerKey);
-
-                _unpairedPads.Add(partnerKey);
-                Game1.showGlobalMessage("Um teletransportador foi destruído. O par voltou a ficar solteiro.");
-            }
-        }
-
-        private void OnButtonPressed(object sender, ButtonPressedEventArgs e)
-        {
-            if (!e.Button.IsActionButton() || !Context.IsWorldReady) return;
-
-            Vector2 tile = e.Cursor.GrabTile;
-            string clickedKey = $"{Game1.currentLocation.NameOrUniqueName}|{tile.X}|{tile.Y}";
-
-            if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.QualifiedItemId == ItemId)
-            {
-                if (_connectedPairs.TryGetValue(clickedKey, out var targetKey))
+                // Se pisou na última placa, volta para a primeira. Caso contrário, vai para a próxima.
+                int nextIndex = (index + 1) % _orderedPlates.Count;
+                
+                if (nextIndex != index) // Só teleporta se houver outra placa
                 {
+                    string targetKey = _orderedPlates[nextIndex];
                     var parts = targetKey.Split('|');
+                    
                     string locationName = parts[0];
                     int x = int.Parse(parts[1]);
                     int y = int.Parse(parts[2]);
 
+                    // Teleporta o jogador para a próxima placa
                     Game1.warpFarmer(locationName, x, y, 2);
-                    Game1.showGlobalMessage("Teleportado!");
-                    this.Helper.Input.Suppress(e.Button);
-                }
-                else
-                {
-                    Game1.showRedMessage("Este teletransportador ainda não está conectado.");
-                    this.Helper.Input.Suppress(e.Button);
+                    Game1.showGlobalMessage("Zuum!");
+                    
+                    // Ativa a trava para o jogador não teleportar em loop infinito
+                    _warpCooldown = 60; 
                 }
             }
         }
