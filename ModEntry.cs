@@ -54,8 +54,8 @@ namespace TeleportSigns
     [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
     public static class CheckActionPatch
     {
-        // Assinatura correta para a versão 1.6: (Location, Farmer)
-        static bool Prefix(GameLocation __instance, Location tileLocation, Farmer who, ref bool __result)
+        // Assinatura corrigida para a versão 1.6: inclui o parâmetro 'Rectangle viewport'
+        static bool Prefix(GameLocation __instance, Location tileLocation, Rectangle viewport, Farmer who, ref bool __result)
         {
             Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
 
@@ -63,10 +63,11 @@ namespace TeleportSigns
             {
                 string text = ModEntry.GetSignText(sign)?.Trim();
                 if (string.IsNullOrWhiteSpace(text))
-                    return true;
+                    return true; // Se estiver vazia, deixa o comportamento normal (abrir edição)
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
+                // Remove registros antigos desta placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
@@ -82,7 +83,7 @@ namespace TeleportSigns
                 {
                     Game1.showRedMessage($"Placa '{text}' registrada. Coloque outra placa com o mesmo texto.");
                     __result = true;
-                    return false;
+                    return false; // Impede a abertura da edição da placa
                 }
                 else if (locations.Count == 2)
                 {
