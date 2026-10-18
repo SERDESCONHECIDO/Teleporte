@@ -11,12 +11,10 @@ namespace TeleportPairs
 {
     public class ModEntry : Mod
     {
-        // O ID qualificado do item no jogo é "(BC)Teleportador_Item"
         private const string ItemId = "(BC)Teleportador_Item";
 
-        // Usamos uma string como chave: "Localização|X|Y"
-        private List<string> _unpairedPads = new();
-        private Dictionary<string, string> _connectedPairs = new();
+        private readonly List<string> _unpairedPads = new();
+        private readonly Dictionary<string, string> _connectedPairs = new();
 
         public override void Entry(IModHelper helper)
         {
@@ -33,7 +31,6 @@ namespace TeleportPairs
 
         private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
-            // Objetos adicionados (colocados no chão)
             foreach (var added in e.Added)
             {
                 if (added.Value.QualifiedItemId == ItemId)
@@ -43,7 +40,6 @@ namespace TeleportPairs
                 }
             }
 
-            // Objetos removidos (quebrados)
             foreach (var removed in e.Removed)
             {
                 if (removed.Value.QualifiedItemId == ItemId)
@@ -94,14 +90,13 @@ namespace TeleportPairs
         {
             if (!e.Button.IsActionButton() || !Context.IsWorldReady) return;
 
-            Vector2 tile = this.Helper.Input.GetCursorPosition().GrabTile;
+            Vector2 tile = e.Cursor.GrabTile;
             string clickedKey = $"{Game1.currentLocation.NameOrUniqueName}|{tile.X}|{tile.Y}";
 
             if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.QualifiedItemId == ItemId)
             {
                 if (_connectedPairs.TryGetValue(clickedKey, out var targetKey))
                 {
-                    // Separa a chave para obter a localização e as coordenadas
                     var parts = targetKey.Split('|');
                     string locationName = parts[0];
                     int x = int.Parse(parts[1]);
