@@ -25,7 +25,8 @@ jobs:
     - name: Empacotar
       run: |
         mkdir -p Mod_Pronto
-        cp manifest.json Mod_Pronto/
+        cp Manifest.json Mod_Pronto/manifest.json
+        cp content.json Mod_Pronto/
         cp bin/Release/net6.0/PressurePlateTeleporter.dll Mod_Pronto/
 
     - name: Salvar Zip
