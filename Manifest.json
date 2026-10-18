@@ -1,9 +1,9 @@
 {
-  "Name": "Teleport Signs",
+  "Name": "Teleport Pairs",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Transforma placas de texto em teleportes. Duas placas com o mesmo texto se conectam.",
-  "UniqueID": "SeuNome.TeleportSigns",
-  "EntryDll": "TeleportSigns.dll",
+  "Description": "Adiciona teletransportadores que se conectam automaticamente em pares.",
+  "UniqueID": "SeuNome.TeleportPairs",
+  "EntryDll": "TeleportPairs.dll",
   "MinimumApiVersion": "4.0.0"
 }
