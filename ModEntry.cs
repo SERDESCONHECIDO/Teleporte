@@ -32,17 +32,14 @@ namespace TeleportSigns
 
         internal static string GetSignText(Sign sign)
         {
-            // Tenta a propriedade pública 'text' (padrão na 1.6)
             var prop = typeof(Sign).GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
             if (prop != null && prop.PropertyType == typeof(string))
                 return (string)prop.GetValue(sign);
 
-            // Fallback: campo privado 'text'
             var field = typeof(Sign).GetField("text", BindingFlags.NonPublic | BindingFlags.Instance);
             if (field != null && field.FieldType == typeof(string))
                 return (string)field.GetValue(sign);
 
-            // Fallback: campo 'signText' (versões antigas)
             var field2 = typeof(Sign).GetField("signText", BindingFlags.NonPublic | BindingFlags.Instance);
             if (field2 != null && field2.FieldType == typeof(string))
                 return (string)field2.GetValue(sign);
@@ -51,23 +48,35 @@ namespace TeleportSigns
         }
     }
 
-    [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
+    [HarmonyPatch]
     public static class CheckActionPatch
     {
-        // Assinatura corrigida para a versão 1.6: inclui o parâmetro 'Rectangle viewport'
-        static bool Prefix(GameLocation __instance, Location tileLocation, Rectangle viewport, Farmer who, ref bool __result)
+        // Busca dinamicamente o método 'checkAction' na classe GameLocation
+        static MethodBase TargetMethod()
         {
+            return AccessTools.Method(typeof(GameLocation), "checkAction");
+        }
+
+        // O Prefixo usa object[] para se adaptar a qualquer assinatura
+        static bool Prefix(GameLocation __instance, object[] __args, ref bool __result)
+        {
+            // Os argumentos do método original são: (Location tileLocation, [Rectangle viewport], Farmer who)
+            Location tileLocation = null;
+            foreach (var arg in __args)
+            {
+                if (arg is Location loc) { tileLocation = loc; break; }
+            }
+            if (tileLocation == null) return true;
+
             Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
 
             if (__instance.Objects.TryGetValue(tileVec, out var obj) && obj is Sign sign)
             {
                 string text = ModEntry.GetSignText(sign)?.Trim();
-                if (string.IsNullOrWhiteSpace(text))
-                    return true; // Se estiver vazia, deixa o comportamento normal (abrir edição)
+                if (string.IsNullOrWhiteSpace(text)) return true;
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
-                // Remove registros antigos desta placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
@@ -83,7 +92,7 @@ namespace TeleportSigns
                 {
                     Game1.showRedMessage($"Placa '{text}' registrada. Coloque outra placa com o mesmo texto.");
                     __result = true;
-                    return false; // Impede a abertura da edição da placa
+                    return false;
                 }
                 else if (locations.Count == 2)
                 {
