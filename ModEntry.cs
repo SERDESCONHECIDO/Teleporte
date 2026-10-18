@@ -7,6 +7,7 @@ using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Objects;
 using Microsoft.Xna.Framework;
+using xTile.Dimensions; // <-- Adicionado para reconhecer 'Location'
 
 namespace TeleportSigns
 {
@@ -42,7 +43,6 @@ namespace TeleportSigns
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
-                // Limpa registros antigos desta mesma placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == new Vector2(tileLocation.X, tileLocation.Y));
