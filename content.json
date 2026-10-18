@@ -5,13 +5,13 @@
       "Action": "EditData",
       "Target": "Data/BigCraftables",
       "Entries": {
-        "PressurePlate_Item": {
-          "Name": "PressurePlate_Item",
-          "DisplayName": "Placa de Pressão",
-          "Description": "Pise nela para ser teleportado para a próxima placa colocada.",
-          "Price": 500,
+        "ObeliscoPares_Item": {
+          "Name": "ObeliscoPares_Item",
+          "DisplayName": "Obelisco Místico",
+          "Description": "Clique para viajar para o obelisco conectado.",
+          "Price": 5000,
           "Texture": "Maps/springobjects",
-          "SpriteIndex": 469,
+          "SpriteIndex": 110,
           "Fragility": 0,
           "CanBePlacedOutdoors": true,
           "CanBePlacedIndoors": true,
@@ -23,7 +23,7 @@
       "Action": "EditData",
       "Target": "Data/CraftingRecipes",
       "Entries": {
-        "PressurePlate_Receita": "335 2 787 1/Home/PressurePlate_Item/true/null/null"
+        "ObeliscoPares_Receita": "390 100 787 5/Home/ObeliscoPares_Item/true/null/null"
       }
     }
   ]
