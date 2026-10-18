@@ -1,0 +1,9 @@
+{
+  "Name": "Teleport Signs",
+  "Author": "SeuNome",
+  "Version": "1.0.0",
+  "Description": "Transforma placas de texto em teleportes. Duas placas com o mesmo texto se conectam.",
+  "UniqueID": "SeuNome.TeleportSigns",
+  "EntryDll": "TeleportSigns.dll",
+  "MinimumApiVersion": "4.0.0"
+}
