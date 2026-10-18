@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -33,21 +34,39 @@ namespace TeleportSigns
     [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
     public static class CheckActionPatch
     {
+        // Obtém o texto da placa de forma robusta, tentando a propriedade pública e depois o campo privado
+        private static string GetSignText(Sign sign)
+        {
+            // Tenta a propriedade pública 'text' (se existir)
+            var prop = typeof(Sign).GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
+            if (prop != null && prop.PropertyType == typeof(string))
+                return (string)prop.GetValue(sign);
+
+            // Tenta o campo privado 'text' (comum em versões anteriores)
+            var field = typeof(Sign).GetField("text", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null && field.FieldType == typeof(string))
+                return (string)field.GetValue(sign);
+
+            // Fallback: tenta 'signText' (algumas versões podem usar este nome)
+            var field2 = typeof(Sign).GetField("signText", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field2 != null && field2.FieldType == typeof(string))
+                return (string)field2.GetValue(sign);
+
+            return null;
+        }
+
         static bool Prefix(GameLocation __instance, Location tileLocation, Farmer who, ref bool __result)
         {
-            // Converte a posição do tile para Vector2 para buscar o objeto no mapa
             Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
 
             if (__instance.Objects.TryGetValue(tileVec, out var obj) && obj is Sign sign)
             {
-                // Na versão 1.6, a propriedade de texto da placa é 'displayText'
-                string text = sign.displayText?.Trim();
+                string text = GetSignText(sign)?.Trim();
                 if (string.IsNullOrWhiteSpace(text))
-                    return true; // Se estiver vazia, deixa o comportamento normal (abrir edição)
+                    return true;
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
-                // Limpa registros antigos desta mesma placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
@@ -63,16 +82,14 @@ namespace TeleportSigns
                 {
                     Game1.showRedMessage($"Placa '{text}' registrada. Coloque outra placa com o mesmo texto.");
                     __result = true;
-                    return false; // Impede a abertura da edição da placa
+                    return false;
                 }
                 else if (locations.Count == 2)
                 {
-                    // Encontra a "outra" placa (a que não é a atual)
                     var target = locations.FirstOrDefault(l => l.Item1 != __instance.NameOrUniqueName || l.Item2 != tileVec);
 
                     if (target != null)
                     {
-                        // Teleporta o jogador para a outra placa
                         Game1.warpFarmer(target.Item1, (int)target.Item2.X, (int)target.Item2.Y, 2);
                         Game1.showGlobalMessage($"Teleportado!");
                     }
@@ -86,7 +103,7 @@ namespace TeleportSigns
                     return false;
                 }
             }
-            return true; // Executa o comportamento original para outros objetos
+            return true;
         }
     }
 }
