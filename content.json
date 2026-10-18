@@ -5,13 +5,13 @@
       "Action": "EditData",
       "Target": "Data/BigCraftables",
       "Entries": {
-        "Teleportador_Item": {
-          "Name": "Teleportador_Item",
-          "DisplayName": "Teletransportador",
-          "Description": "Conecta-se automaticamente a outro teletransportador.",
-          "Price": 1000,
-          "Texture": "TileSheets/Craftables",
-          "SpriteIndex": 9,
+        "PressurePlate_Item": {
+          "Name": "PressurePlate_Item",
+          "DisplayName": "Placa de Pressão",
+          "Description": "Pise nela para ser teleportado para a próxima placa colocada.",
+          "Price": 500,
+          "Texture": "Maps/springobjects",
+          "SpriteIndex": 469,
           "Fragility": 0,
           "CanBePlacedOutdoors": true,
           "CanBePlacedIndoors": true,
@@ -23,7 +23,7 @@
       "Action": "EditData",
       "Target": "Data/CraftingRecipes",
       "Entries": {
-        "Teleportador_Receita": "335 5 787 1/Home/Teleportador_Item/true/null/null"
+        "PressurePlate_Receita": "335 2 787 1/Home/PressurePlate_Item/true/null/null"
       }
     }
   ]
