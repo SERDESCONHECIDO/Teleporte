@@ -11,13 +11,12 @@ namespace TeleportPairs
 {
     public class ModEntry : Mod
     {
+        // O ID qualificado do item no jogo é "(BC)Teleportador_Item"
         private const string ItemId = "(BC)Teleportador_Item";
 
-        // Lista de teletransportadores que estão sozinhos no mapa
-        private List<TeleportPad> _unpairedPads = new();
-        
-        // Dicionário que guarda os pares conectados
-        private Dictionary<TeleportPad, TeleportPad> _connectedPairs = new();
+        // Usamos uma string como chave: "Localização|X|Y"
+        private List<string> _unpairedPads = new();
+        private Dictionary<string, string> _connectedPairs = new();
 
         public override void Entry(IModHelper helper)
         {
@@ -34,65 +33,59 @@ namespace TeleportPairs
 
         private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
-            // Verifica se algum objeto foi ADICIONADO (colocado no chão)
+            // Objetos adicionados (colocados no chão)
             foreach (var added in e.Added)
             {
-                if (added.Value.ItemId == ItemId)
+                if (added.Value.QualifiedItemId == ItemId)
                 {
-                    var newPad = new TeleportPad(e.Location.NameOrUniqueName, added.Key);
-                    RegisterNewPad(newPad);
+                    string key = $"{e.Location.NameOrUniqueName}|{added.Key.X}|{added.Key.Y}";
+                    RegisterNewPad(key);
                 }
             }
 
-            // Verifica se algum objeto foi REMOVIDO (quebrado)
+            // Objetos removidos (quebrados)
             foreach (var removed in e.Removed)
             {
-                if (removed.Value.ItemId == ItemId)
+                if (removed.Value.QualifiedItemId == ItemId)
                 {
-                    var brokenPad = new TeleportPad(e.Location.NameOrUniqueName, removed.Key);
-                    UnregisterPad(brokenPad);
+                    string key = $"{e.Location.NameOrUniqueName}|{removed.Key.X}|{removed.Key.Y}";
+                    UnregisterPad(key);
                 }
             }
         }
 
-        private void RegisterNewPad(TeleportPad newPad)
+        private void RegisterNewPad(string newPadKey)
         {
             if (_unpairedPads.Count > 0)
             {
-                // Pega o primeiro teletransportador solteiro da fila
-                var partner = _unpairedPads[0];
+                string partnerKey = _unpairedPads[0];
                 _unpairedPads.RemoveAt(0);
 
-                // Conecta os dois
-                _connectedPairs[newPad] = partner;
-                _connectedPairs[partner] = newPad;
+                _connectedPairs[newPadKey] = partnerKey;
+                _connectedPairs[partnerKey] = newPadKey;
                 Game1.showGlobalMessage("Dois teletransportadores foram conectados!");
             }
             else
             {
-                // Se não tem ninguém solteiro, ele entra na fila de espera
-                _unpairedPads.Add(newPad);
+                _unpairedPads.Add(newPadKey);
                 Game1.showGlobalMessage("Teletransportador aguardando conexão...");
             }
         }
 
-        private void UnregisterPad(TeleportPad brokenPad)
+        private void UnregisterPad(string brokenPadKey)
         {
-            // Se a máquina quebrada estava sozinha, só a remove da fila
-            if (_unpairedPads.Contains(brokenPad))
+            if (_unpairedPads.Contains(brokenPadKey))
             {
-                _unpairedPads.Remove(brokenPad);
+                _unpairedPads.Remove(brokenPadKey);
                 return;
             }
 
-            // Se ela estava conectada, desconecta o par
-            if (_connectedPairs.TryGetValue(brokenPad, out var partner))
+            if (_connectedPairs.TryGetValue(brokenPadKey, out var partnerKey))
             {
-                _connectedPairs.Remove(brokenPad);
-                _connectedPairs.Remove(partner);
+                _connectedPairs.Remove(brokenPadKey);
+                _connectedPairs.Remove(partnerKey);
 
-                // O parceiro que sobrou volta para a fila de solteiros
-                _unpairedPads.Add(partner);
+                _unpairedPads.Add(partnerKey);
                 Game1.showGlobalMessage("Um teletransportador foi destruído. O par voltou a ficar solteiro.");
             }
         }
@@ -102,17 +95,21 @@ namespace TeleportPairs
             if (!e.Button.IsActionButton() || !Context.IsWorldReady) return;
 
             Vector2 tile = this.Helper.Input.GetCursorPosition().GrabTile;
+            string clickedKey = $"{Game1.currentLocation.NameOrUniqueName}|{tile.X}|{tile.Y}";
 
-            if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.ItemId == ItemId)
+            if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.QualifiedItemId == ItemId)
             {
-                var clickedPad = new TeleportPad(Game1.currentLocation.NameOrUniqueName, tile);
-
-                if (_connectedPairs.TryGetValue(clickedPad, out var targetPad))
+                if (_connectedPairs.TryGetValue(clickedKey, out var targetKey))
                 {
-                    // Teleporta o jogador para o par conectado
-                    Game1.warpFarmer(targetPad.Location, (int)targetPad.Tile.X, (int)targetPad.Tile.Y, 2);
+                    // Separa a chave para obter a localização e as coordenadas
+                    var parts = targetKey.Split('|');
+                    string locationName = parts[0];
+                    int x = int.Parse(parts[1]);
+                    int y = int.Parse(parts[2]);
+
+                    Game1.warpFarmer(locationName, x, y, 2);
                     Game1.showGlobalMessage("Teleportado!");
-                    this.Helper.Input.Suppress(e.Button); // Impede que a interface da máquina abra
+                    this.Helper.Input.Suppress(e.Button);
                 }
                 else
                 {
@@ -120,31 +117,6 @@ namespace TeleportPairs
                     this.Helper.Input.Suppress(e.Button);
                 }
             }
-        }
-    }
-
-    // Classe auxiliar para representar a posição exata da máquina no mapa
-    public class TeleportPad
-    {
-        public string Location { get; set; }
-        public Vector2 Tile { get; set; }
-
-        public TeleportPad(string location, Vector2 tile)
-        {
-            Location = location;
-            Tile = tile;
-        }
-
-        // Sobrescrevemos o Equals para que o Dicionário saiba comparar as posições corretamente
-        public override bool Equals(object obj)
-        {
-            if (obj is not TeleportPad other) return false;
-            return Location == other.Location && Tile == other.Tile;
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Location, Tile);
         }
     }
 }
