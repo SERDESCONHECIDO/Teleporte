@@ -1,9 +1,9 @@
 {
-  "Name": "Pressure Plate Teleporter",
+  "Name": "Obelisk Pairs",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Adiciona placas de pressão que teleportam o jogador para a próxima placa colocada.",
-  "UniqueID": "SeuNome.PressurePlateTeleporter",
-  "EntryDll": "PressurePlateTeleporter.dll",
+  "Description": "Adiciona obeliscos que se conectam em pares ilimitados.",
+  "UniqueID": "SeuNome.ObeliskPairs",
+  "EntryDll": "ObeliskPairs.dll",
   "MinimumApiVersion": "4.0.0"
 }
