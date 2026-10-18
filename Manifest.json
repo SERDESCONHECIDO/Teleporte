@@ -1,9 +1,9 @@
 {
-  "Name": "Teleport Pairs",
+  "Name": "Pressure Plate Teleporter",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Adiciona teletransportadores que se conectam automaticamente em pares.",
-  "UniqueID": "SeuNome.TeleportPairs",
-  "EntryDll": "TeleportPairs.dll",
+  "Description": "Adiciona placas de pressão que teleportam o jogador para a próxima placa colocada.",
+  "UniqueID": "SeuNome.PressurePlateTeleporter",
+  "EntryDll": "PressurePlateTeleporter.dll",
   "MinimumApiVersion": "4.0.0"
 }
