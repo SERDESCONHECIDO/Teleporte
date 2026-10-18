@@ -32,7 +32,7 @@ namespace TeleportSigns
 
         internal static string GetSignText(Sign sign)
         {
-            // Tenta a propriedade pública 'text' (presente na 1.6)
+            // Tenta a propriedade pública 'text' (padrão na 1.6)
             var prop = typeof(Sign).GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
             if (prop != null && prop.PropertyType == typeof(string))
                 return (string)prop.GetValue(sign);
@@ -54,7 +54,8 @@ namespace TeleportSigns
     [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
     public static class CheckActionPatch
     {
-        static bool Prefix(GameLocation __instance, Location tileLocation, Rectangle viewport, Farmer who, ref bool __result)
+        // Assinatura correta para a versão 1.6: (Location, Farmer)
+        static bool Prefix(GameLocation __instance, Location tileLocation, Farmer who, ref bool __result)
         {
             Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
 
@@ -66,7 +67,6 @@ namespace TeleportSigns
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
-                // Remove registros antigos desta placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
