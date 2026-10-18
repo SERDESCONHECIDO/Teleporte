@@ -7,7 +7,7 @@ using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Objects;
 using Microsoft.Xna.Framework;
-using xTile.Dimensions; // <-- Adicionado para reconhecer 'Location'
+using xTile.Dimensions;
 
 namespace TeleportSigns
 {
@@ -35,37 +35,44 @@ namespace TeleportSigns
     {
         static bool Prefix(GameLocation __instance, Location tileLocation, Farmer who, ref bool __result)
         {
-            if (__instance.Objects.TryGetValue(tileLocation, out var obj) && obj is Sign sign)
+            // Converte a posição do tile para Vector2 para buscar o objeto no mapa
+            Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
+
+            if (__instance.Objects.TryGetValue(tileVec, out var obj) && obj is Sign sign)
             {
-                string text = sign.text?.Trim();
+                // Na versão 1.6, a propriedade de texto da placa é 'displayText'
+                string text = sign.displayText?.Trim();
                 if (string.IsNullOrWhiteSpace(text))
-                    return true;
+                    return true; // Se estiver vazia, deixa o comportamento normal (abrir edição)
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
+                // Limpa registros antigos desta mesma placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
-                    list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == new Vector2(tileLocation.X, tileLocation.Y));
+                    list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
                 }
 
                 if (!ModEntry.SignRegistry.ContainsKey(text))
                     ModEntry.SignRegistry[text] = new List<Tuple<string, Vector2>>();
 
-                ModEntry.SignRegistry[text].Add(new Tuple<string, Vector2>(__instance.NameOrUniqueName, new Vector2(tileLocation.X, tileLocation.Y)));
+                ModEntry.SignRegistry[text].Add(new Tuple<string, Vector2>(__instance.NameOrUniqueName, tileVec));
 
                 var locations = ModEntry.SignRegistry[text];
                 if (locations.Count == 1)
                 {
                     Game1.showRedMessage($"Placa '{text}' registrada. Coloque outra placa com o mesmo texto.");
                     __result = true;
-                    return false;
+                    return false; // Impede a abertura da edição da placa
                 }
                 else if (locations.Count == 2)
                 {
-                    var target = locations.FirstOrDefault(l => l.Item1 != __instance.NameOrUniqueName || l.Item2 != new Vector2(tileLocation.X, tileLocation.Y));
+                    // Encontra a "outra" placa (a que não é a atual)
+                    var target = locations.FirstOrDefault(l => l.Item1 != __instance.NameOrUniqueName || l.Item2 != tileVec);
 
                     if (target != null)
                     {
+                        // Teleporta o jogador para a outra placa
                         Game1.warpFarmer(target.Item1, (int)target.Item2.X, (int)target.Item2.Y, 2);
                         Game1.showGlobalMessage($"Teleportado!");
                     }
@@ -79,7 +86,7 @@ namespace TeleportSigns
                     return false;
                 }
             }
-            return true;
+            return true; // Executa o comportamento original para outros objetos
         }
     }
 }
