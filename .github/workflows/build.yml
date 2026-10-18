@@ -20,17 +20,17 @@ jobs:
         git clone --depth 1 https://github.com/StardewModders/mod-reference-assemblies.git "$HOME/StardewValley"
 
     - name: Compilar
-      run: dotnet build PressurePlateTeleporter.csproj -c Release
+      run: dotnet build ObeliskPairs.csproj -c Release
 
     - name: Empacotar
       run: |
         mkdir -p Mod_Pronto
         cp manifest.json Mod_Pronto/
         cp content.json Mod_Pronto/
-        cp bin/Release/net6.0/PressurePlateTeleporter.dll Mod_Pronto/
+        cp bin/Release/net6.0/ObeliskPairs.dll Mod_Pronto/
 
     - name: Salvar Zip
       uses: actions/upload-artifact@v4
       with:
-        name: PressurePlateTeleporter-Mod
+        name: ObeliskPairs-Mod
         path: Mod_Pronto/
