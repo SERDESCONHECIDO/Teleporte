@@ -18,8 +18,6 @@
     <Reference Include="MonoGame.Framework">
       <HintPath>$(HOME)/StardewValley/MonoGame.Framework.dll</HintPath>
     </Reference>
-    
-    <!-- Referências da pasta smapi-internal -->
     <Reference Include="0Harmony">
       <HintPath>$(HOME)/StardewValley/smapi-internal/0Harmony.dll</HintPath>
     </Reference>
