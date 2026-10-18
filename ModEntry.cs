@@ -1,110 +1,150 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using HarmonyLib;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Objects;
 using Microsoft.Xna.Framework;
-using xTile.Dimensions;
 
-namespace TeleportSigns
+namespace TeleportPairs
 {
     public class ModEntry : Mod
     {
-        internal static IMonitor ModMonitor;
-        internal static Dictionary<string, List<Tuple<string, Vector2>>> SignRegistry = new();
+        private const string ItemId = "(BC)Teleportador_Item";
+
+        // Lista de teletransportadores que estão sozinhos no mapa
+        private List<TeleportPad> _unpairedPads = new();
+        
+        // Dicionário que guarda os pares conectados
+        private Dictionary<TeleportPad, TeleportPad> _connectedPairs = new();
 
         public override void Entry(IModHelper helper)
         {
-            ModMonitor = this.Monitor;
             helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
-
-            var harmony = new Harmony(this.ModManifest.UniqueID);
-            harmony.PatchAll();
+            helper.Events.World.ObjectListChanged += OnObjectListChanged;
+            helper.Events.Input.ButtonPressed += OnButtonPressed;
         }
 
         private void OnSaveLoaded(object sender, SaveLoadedEventArgs e)
         {
-            SignRegistry.Clear();
+            _unpairedPads.Clear();
+            _connectedPairs.Clear();
         }
 
-        internal static string GetSignText(Sign sign)
+        private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
-            // Tenta propriedade pública 'text' (comum na 1.6)
-            var prop = typeof(Sign).GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
-            if (prop != null && prop.PropertyType == typeof(string))
-                return (string)prop.GetValue(sign);
+            // Verifica se algum objeto foi ADICIONADO (colocado no chão)
+            foreach (var added in e.Added)
+            {
+                if (added.Value.ItemId == ItemId)
+                {
+                    var newPad = new TeleportPad(e.Location.NameOrUniqueName, added.Key);
+                    RegisterNewPad(newPad);
+                }
+            }
 
-            // Fallback: campo privado 'text'
-            var field = typeof(Sign).GetField("text", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null && field.FieldType == typeof(string))
-                return (string)field.GetValue(sign);
+            // Verifica se algum objeto foi REMOVIDO (quebrado)
+            foreach (var removed in e.Removed)
+            {
+                if (removed.Value.ItemId == ItemId)
+                {
+                    var brokenPad = new TeleportPad(e.Location.NameOrUniqueName, removed.Key);
+                    UnregisterPad(brokenPad);
+                }
+            }
+        }
 
-            // Fallback: campo 'signText' (versões anteriores)
-            var field2 = typeof(Sign).GetField("signText", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field2 != null && field2.FieldType == typeof(string))
-                return (string)field2.GetValue(sign);
+        private void RegisterNewPad(TeleportPad newPad)
+        {
+            if (_unpairedPads.Count > 0)
+            {
+                // Pega o primeiro teletransportador solteiro da fila
+                var partner = _unpairedPads[0];
+                _unpairedPads.RemoveAt(0);
 
-            return null;
+                // Conecta os dois
+                _connectedPairs[newPad] = partner;
+                _connectedPairs[partner] = newPad;
+                Game1.showGlobalMessage("Dois teletransportadores foram conectados!");
+            }
+            else
+            {
+                // Se não tem ninguém solteiro, ele entra na fila de espera
+                _unpairedPads.Add(newPad);
+                Game1.showGlobalMessage("Teletransportador aguardando conexão...");
+            }
+        }
+
+        private void UnregisterPad(TeleportPad brokenPad)
+        {
+            // Se a máquina quebrada estava sozinha, só a remove da fila
+            if (_unpairedPads.Contains(brokenPad))
+            {
+                _unpairedPads.Remove(brokenPad);
+                return;
+            }
+
+            // Se ela estava conectada, desconecta o par
+            if (_connectedPairs.TryGetValue(brokenPad, out var partner))
+            {
+                _connectedPairs.Remove(brokenPad);
+                _connectedPairs.Remove(partner);
+
+                // O parceiro que sobrou volta para a fila de solteiros
+                _unpairedPads.Add(partner);
+                Game1.showGlobalMessage("Um teletransportador foi destruído. O par voltou a ficar solteiro.");
+            }
+        }
+
+        private void OnButtonPressed(object sender, ButtonPressedEventArgs e)
+        {
+            if (!e.Button.IsActionButton() || !Context.IsWorldReady) return;
+
+            Vector2 tile = this.Helper.Input.GetCursorPosition().GrabTile;
+
+            if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.ItemId == ItemId)
+            {
+                var clickedPad = new TeleportPad(Game1.currentLocation.NameOrUniqueName, tile);
+
+                if (_connectedPairs.TryGetValue(clickedPad, out var targetPad))
+                {
+                    // Teleporta o jogador para o par conectado
+                    Game1.warpFarmer(targetPad.Location, (int)targetPad.Tile.X, (int)targetPad.Tile.Y, 2);
+                    Game1.showGlobalMessage("Teleportado!");
+                    this.Helper.Input.Suppress(e.Button); // Impede que a interface da máquina abra
+                }
+                else
+                {
+                    Game1.showRedMessage("Este teletransportador ainda não está conectado.");
+                    this.Helper.Input.Suppress(e.Button);
+                }
+            }
         }
     }
 
-    [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
-    public static class CheckActionPatch
+    // Classe auxiliar para representar a posição exata da máquina no mapa
+    public class TeleportPad
     {
-        // Assinatura correta para 1.6: (Location tileLocation, Rectangle viewport, Farmer who)
-        static bool Prefix(GameLocation __instance, Location tileLocation, Rectangle viewport, Farmer who, ref bool __result)
+        public string Location { get; set; }
+        public Vector2 Tile { get; set; }
+
+        public TeleportPad(string location, Vector2 tile)
         {
-            Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
+            Location = location;
+            Tile = tile;
+        }
 
-            if (__instance.Objects.TryGetValue(tileVec, out var obj) && obj is Sign sign)
-            {
-                string text = ModEntry.GetSignText(sign)?.Trim();
-                if (string.IsNullOrWhiteSpace(text))
-                    return true; // Deixa o comportamento normal (abrir edição)
+        // Sobrescrevemos o Equals para que o Dicionário saiba comparar as posições corretamente
+        public override bool Equals(object obj)
+        {
+            if (obj is not TeleportPad other) return false;
+            return Location == other.Location && Tile == other.Tile;
+        }
 
-                if (text.Length > 60) text = text.Substring(0, 60);
-
-                // Remove registros antigos desta placa
-                foreach (var list in ModEntry.SignRegistry.Values)
-                {
-                    list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
-                }
-
-                if (!ModEntry.SignRegistry.ContainsKey(text))
-                    ModEntry.SignRegistry[text] = new List<Tuple<string, Vector2>>();
-
-                ModEntry.SignRegistry[text].Add(new Tuple<string, Vector2>(__instance.NameOrUniqueName, tileVec));
-
-                var locations = ModEntry.SignRegistry[text];
-                if (locations.Count == 1)
-                {
-                    Game1.showRedMessage($"Placa '{text}' registrada. Coloque outra placa com o mesmo texto.");
-                    __result = true;
-                    return false; // Impede a abertura da edição
-                }
-                else if (locations.Count == 2)
-                {
-                    var target = locations.FirstOrDefault(l => l.Item1 != __instance.NameOrUniqueName || l.Item2 != tileVec);
-                    if (target != null)
-                    {
-                        Game1.warpFarmer(target.Item1, (int)target.Item2.X, (int)target.Item2.Y, 2);
-                        Game1.showGlobalMessage("Teleportado!");
-                    }
-                    __result = true;
-                    return false;
-                }
-                else if (locations.Count > 2)
-                {
-                    Game1.showRedMessage($"Erro: Mais de duas placas com o texto '{text}'.");
-                    __result = true;
-                    return false;
-                }
-            }
-            return true;
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Location, Tile);
         }
     }
 }
