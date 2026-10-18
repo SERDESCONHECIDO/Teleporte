@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using HarmonyLib;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -29,44 +28,40 @@ namespace TeleportSigns
         {
             SignRegistry.Clear();
         }
+
+        // Método auxiliar para obter o texto da placa de forma robusta
+        internal static string GetSignText(Sign sign)
+        {
+            // Tenta a propriedade pública 'SignText' (padrão na 1.6)
+            var prop = typeof(Sign).GetProperty("SignText", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            if (prop != null && prop.PropertyType == typeof(string))
+                return (string)prop.GetValue(sign);
+
+            // Fallback: tenta o campo privado 'signText'
+            var field = typeof(Sign).GetField("signText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null && field.FieldType == typeof(string))
+                return (string)field.GetValue(sign);
+
+            return null;
+        }
     }
 
     [HarmonyPatch(typeof(GameLocation), nameof(GameLocation.checkAction))]
     public static class CheckActionPatch
     {
-        // Obtém o texto da placa de forma robusta, tentando a propriedade pública e depois o campo privado
-        private static string GetSignText(Sign sign)
-        {
-            // Tenta a propriedade pública 'text' (se existir)
-            var prop = typeof(Sign).GetProperty("text", BindingFlags.Public | BindingFlags.Instance);
-            if (prop != null && prop.PropertyType == typeof(string))
-                return (string)prop.GetValue(sign);
-
-            // Tenta o campo privado 'text' (comum em versões anteriores)
-            var field = typeof(Sign).GetField("text", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null && field.FieldType == typeof(string))
-                return (string)field.GetValue(sign);
-
-            // Fallback: tenta 'signText' (algumas versões podem usar este nome)
-            var field2 = typeof(Sign).GetField("signText", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field2 != null && field2.FieldType == typeof(string))
-                return (string)field2.GetValue(sign);
-
-            return null;
-        }
-
         static bool Prefix(GameLocation __instance, Location tileLocation, Farmer who, ref bool __result)
         {
             Vector2 tileVec = new Vector2(tileLocation.X, tileLocation.Y);
 
             if (__instance.Objects.TryGetValue(tileVec, out var obj) && obj is Sign sign)
             {
-                string text = GetSignText(sign)?.Trim();
+                string text = ModEntry.GetSignText(sign)?.Trim();
                 if (string.IsNullOrWhiteSpace(text))
-                    return true;
+                    return true; // Se estiver vazia, deixa o comportamento normal (abrir edição)
 
                 if (text.Length > 60) text = text.Substring(0, 60);
 
+                // Limpa registros antigos desta mesma placa
                 foreach (var list in ModEntry.SignRegistry.Values)
                 {
                     list.RemoveAll(entry => entry.Item1 == __instance.NameOrUniqueName && entry.Item2 == tileVec);
