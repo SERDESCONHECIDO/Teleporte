@@ -29,7 +29,8 @@ namespace PressurePlateTeleporter
             _orderedPlates.Clear();
         }
 
-        private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
+        // O tipo correto do evento é WorldObjectListChangedEventArgs
+        private void OnObjectListChanged(object sender, WorldObjectListChangedEventArgs e)
         {
             // Quando uma placa é colocada no chão
             foreach (var added in e.Added)
