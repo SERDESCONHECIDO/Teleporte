@@ -1,121 +1,79 @@
 using System;
 using System.Collections.Generic;
-using StardewModdingAPI;
-using StardewModdingAPI.Events;
-using StardewValley;
+using System.Linq;
+using HarmonyLib;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using StardewModdingAPI;
+using StardewValley;
+using StardewValley.Menus;
+using StardewValley.Objects;
+using StardewValley.Tools;
 
-namespace ObeliskPairs
+namespace VenderEquipamentos
 {
     public class ModEntry : Mod
     {
-        private const string ItemId = "(BC)ObeliscoPares_Item";
-
-        // Fila de obeliscos esperando par
-        private readonly List<string> _unpairedObelisks = new();
-        
-        // Dicionário de pares conectados
-        private readonly Dictionary<string, string> _connectedPairs = new();
-
         public override void Entry(IModHelper helper)
         {
-            helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
-            helper.Events.World.ObjectListChanged += OnObjectListChanged;
-            helper.Events.Input.ButtonPressed += OnButtonPressed;
+            var harmony = new Harmony(this.ModManifest.UniqueID);
+            harmony.PatchAll();
         }
+    }
 
-        private void OnSaveLoaded(object sender, SaveLoadedEventArgs e)
+    // --- PATCH 1: Permite que o item seja colocado na caixa de venda ---
+    [HarmonyPatch(typeof(Item), nameof(Item.canBeShipped))]
+    public static class ItemCanBeShippedPatch
+    {
+        static void Postfix(Item __instance, ref bool __result)
         {
-            _unpairedObelisks.Clear();
-            _connectedPairs.Clear();
-        }
+            if (__result) return;
 
-        private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
-        {
-            // Obelisco colocado no chão
-            foreach (var added in e.Added)
+            // Libera armas, botas, anéis e amuletos (trinkets)
+            if (__instance is MeleeWeapon || __instance is Slingshot || 
+                __instance is Boots || __instance is Ring || __instance is Trinket)
             {
-                if (added.Value.QualifiedItemId == ItemId)
+                __result = true;
+            }
+        }
+    }
+
+    // --- Objeto "Falso" para exibir equipamentos no menu de resumo ---
+    public class FakeShippableObject : StardewValley.Object
+    {
+        private readonly Item originalItem;
+
+        public FakeShippableObject(Item item)
+        {
+            this.originalItem = item;
+            this.Name = item.Name;
+            this.DisplayName = item.DisplayName;
+            this.ItemId = item.ItemId;
+            this.Stack = item.Stack;
+            this.Price = item.salePrice();
+            this.Category = -1; // Categoria "Misc"
+        }
+
+        public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
+        {
+            // Desenha o item original (arma, anel, etc.) no lugar do objeto falso
+            this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
+        }
+    }
+
+    // --- PATCH 2: Adiciona os equipamentos ao menu de resumo do final do dia ---
+    [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
+    public static class ShippingMenuParseItemsPatch
+    {
+        static void Prefix(ShippingMenu __instance, IList<Item> items)
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                // Se for um equipamento, substitui por um objeto falso que o menu entende
+                if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item is Trinket)
                 {
-                    string key = $"{e.Location.NameOrUniqueName}|{added.Key.X}|{added.Key.Y}";
-                    RegisterNewObelisk(key);
-                }
-            }
-
-            // Obelisco quebrado
-            foreach (var removed in e.Removed)
-            {
-                if (removed.Value.QualifiedItemId == ItemId)
-                {
-                    string key = $"{e.Location.NameOrUniqueName}|{removed.Key.X}|{removed.Key.Y}";
-                    UnregisterObelisk(key);
-                }
-            }
-        }
-
-        private void RegisterNewObelisk(string newKey)
-        {
-            if (_unpairedObelisks.Count > 0)
-            {
-                // Conecta com o primeiro da fila
-                string partnerKey = _unpairedObelisks[0];
-                _unpairedObelisks.RemoveAt(0);
-
-                _connectedPairs[newKey] = partnerKey;
-                _connectedPairs[partnerKey] = newKey;
-                Game1.showGlobalMessage("Dois Obeliscos foram conectados!");
-            }
-            else
-            {
-                // Entra na fila de espera
-                _unpairedObelisks.Add(newKey);
-                Game1.showGlobalMessage("Obelisco aguardando conexão...");
-            }
-        }
-
-        private void UnregisterObelisk(string brokenKey)
-        {
-            if (_unpairedObelisks.Contains(brokenKey))
-            {
-                _unpairedObelisks.Remove(brokenKey);
-                return;
-            }
-
-            if (_connectedPairs.TryGetValue(brokenKey, out var partnerKey))
-            {
-                _connectedPairs.Remove(brokenKey);
-                _connectedPairs.Remove(partnerKey);
-
-                // O parceiro volta para a fila
-                _unpairedObelisks.Add(partnerKey);
-                Game1.showGlobalMessage("Um Obelisco foi destruído. O par voltou a ficar solteiro.");
-            }
-        }
-
-        private void OnButtonPressed(object sender, ButtonPressedEventArgs e)
-        {
-            if (!e.Button.IsActionButton() || !Context.IsWorldReady) return;
-
-            Vector2 tile = e.Cursor.GrabTile;
-            string clickedKey = $"{Game1.currentLocation.NameOrUniqueName}|{tile.X}|{tile.Y}";
-
-            if (Game1.currentLocation.Objects.TryGetValue(tile, out var obj) && obj.QualifiedItemId == ItemId)
-            {
-                if (_connectedPairs.TryGetValue(clickedKey, out var targetKey))
-                {
-                    var parts = targetKey.Split('|');
-                    string locationName = parts[0];
-                    int x = int.Parse(parts[1]);
-                    int y = int.Parse(parts[2]);
-
-                    Game1.warpFarmer(locationName, x, y, 2);
-                    Game1.showGlobalMessage("Teleportado!");
-                    this.Helper.Input.Suppress(e.Button);
-                }
-                else
-                {
-                    Game1.showRedMessage("Este Obelisco ainda não está conectado.");
-                    this.Helper.Input.Suppress(e.Button);
+                    items[i] = new FakeShippableObject(item);
                 }
             }
         }
