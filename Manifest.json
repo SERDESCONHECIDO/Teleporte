@@ -1,9 +1,9 @@
 {
-  "Name": "Obelisk Pairs",
+  "Name": "Vender Equipamentos",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Adiciona obeliscos que se conectam em pares ilimitados.",
-  "UniqueID": "SeuNome.ObeliskPairs",
-  "EntryDll": "ObeliskPairs.dll",
+  "Description": "Permite vender armas, botas, aneis e amuletos na caixa de venda normal.",
+  "UniqueID": "SeuNome.VenderEquipamentos",
+  "EntryDll": "VenderEquipamentos.dll",
   "MinimumApiVersion": "4.0.0"
 }
