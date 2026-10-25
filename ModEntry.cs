@@ -29,9 +29,16 @@ namespace VenderEquipamentos
         {
             if (__result) return;
 
-            // Libera armas, botas, anéis e amuletos (trinkets)
+            // Libera armas, botas e anéis
             if (__instance is MeleeWeapon || __instance is Slingshot || 
-                __instance is Boots || __instance is Ring || __instance is Trinket)
+                __instance is Boots || __instance is Ring)
+            {
+                __result = true;
+                return;
+            }
+
+            // Libera trinkets via prefixo de ID (evita usar a classe Trinket que não existe no Android)
+            if (__instance.QualifiedItemId?.StartsWith("(TR)") == true)
             {
                 __result = true;
             }
@@ -43,20 +50,20 @@ namespace VenderEquipamentos
     {
         private readonly Item originalItem;
 
-        public FakeShippableObject(Item item)
+        // Construtor com ID válido (Pedra) para evitar erro de item inválido
+        public FakeShippableObject(Item item) : base("390", item.Stack)
         {
             this.originalItem = item;
-            this.Name = item.Name;
-            this.DisplayName = item.DisplayName;
-            this.ItemId = item.ItemId;
-            this.Stack = item.Stack;
-            this.Price = item.salePrice();
-            this.Category = -1; // Categoria "Misc"
         }
+
+        // Sobrescreve o nome e a descrição (não podemos atribuir, apenas sobrescrever o getter)
+        public override string DisplayName => originalItem.DisplayName;
+        public override string Name => originalItem.Name;
+
+        public override int salePrice() => originalItem.salePrice();
 
         public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
         {
-            // Desenha o item original (arma, anel, etc.) no lugar do objeto falso
             this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
         }
     }
@@ -70,8 +77,12 @@ namespace VenderEquipamentos
             for (int i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                // Se for um equipamento, substitui por um objeto falso que o menu entende
-                if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item is Trinket)
+                
+                bool isEquipment = item is MeleeWeapon || item is Slingshot || 
+                                   item is Boots || item is Ring ||
+                                   item.QualifiedItemId?.StartsWith("(TR)") == true;
+
+                if (isEquipment)
                 {
                     items[i] = new FakeShippableObject(item);
                 }
