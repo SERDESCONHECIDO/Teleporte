@@ -54,16 +54,16 @@ namespace VenderEquipamentos
         public FakeShippableObject(Item item) : base("390", item.Stack)
         {
             this.originalItem = item;
+            
+            // Atribui as propriedades básicas
+            this.Name = item.Name;
+            this.Price = item.salePrice(); 
+            this.Category = -1; // Misc
         }
-
-        // Sobrescreve o nome e a descrição (não podemos atribuir, apenas sobrescrever o getter)
-        public override string DisplayName => originalItem.DisplayName;
-        public override string Name => originalItem.Name;
-
-        public override int salePrice() => originalItem.salePrice();
 
         public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
         {
+            // Desenha o item original no lugar do objeto falso
             this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
         }
     }
