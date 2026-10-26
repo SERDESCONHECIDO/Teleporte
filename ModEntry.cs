@@ -31,17 +31,17 @@ namespace VenderEquipamentos
         {
             if (Game1.player == null) return;
             
-            // Pega a caixa de venda do jogador
+            // Pega a caixa de venda do jogador (IInventory)
             var bin = Game1.getFarm()?.getShippingBin(Game1.player);
             if (bin == null) return;
 
-            for (int i = 0; i < bin.Items.Count; i++)
+            // CORREÇÃO AQUI: IInventory usa .Count e [i], não .Items
+            for (int i = 0; i < bin.Count; i++)
             {
-                var item = bin.Items[i];
+                var item = bin[i];
                 if (item != null && IsEquipment(item))
                 {
-                    // Substitui a arma/anel por um objeto falso que o jogo entende
-                    bin.Items[i] = new FakeShippableObject(item);
+                    bin[i] = new FakeShippableObject(item);
                 }
             }
         }
@@ -71,7 +71,6 @@ namespace VenderEquipamentos
     {
         static System.Reflection.MethodBase TargetMethod()
         {
-            // Procura o método 'CanAcceptItem' na classe Object (ignora a assinatura exata)
             return AccessTools.GetDeclaredMethods(typeof(StardewValley.Object))
                 .FirstOrDefault(m => m.Name == "CanAcceptItem" && m.GetParameters().Length >= 1 && m.GetParameters()[0].ParameterType == typeof(Item));
         }
