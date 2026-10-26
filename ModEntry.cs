@@ -39,9 +39,10 @@ namespace VenderEquipamentos
     {
         static bool Prefix(Chest __instance, Item item, ref bool __result)
         {
-            // Usa a API correta da 1.6 para obter a caixa de venda
-            Chest shippingBin = Game1.getFarm().getShippingBin(Game1.player);
-            if (__instance != shippingBin || item == null) return true;
+            // CORREÇÃO 1.6: Faz o cast para Chest para comparar os objetos
+            var shippingBin = Game1.getFarm().getShippingBin(Game1.player) as Chest;
+            
+            if (shippingBin == null || __instance != shippingBin || item == null) return true;
 
             if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
             {
