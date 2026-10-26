@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -20,27 +17,29 @@ namespace VenderEquipamentos
         {
             Instance = this;
             
-            // Substitui os itens no exato momento em que o dia termina
+            // Evento para substituir os itens no fim do dia
             helper.Events.GameLoop.DayEnding += OnDayEnding;
 
+            // Aplica todos os patches Harmony de uma vez
             var harmony = new Harmony(this.ModManifest.UniqueID);
             harmony.PatchAll();
         }
 
         private void OnDayEnding(object sender, DayEndingEventArgs e)
         {
+            // REGRA DE OURO 1.6: Evitar crash no Android verificando player
             if (Game1.player == null) return;
             
-            // Pega a caixa de venda do jogador (IInventory)
             var bin = Game1.getFarm()?.getShippingBin(Game1.player);
             if (bin == null) return;
 
-            // CORREÇÃO AQUI: IInventory usa .Count e [i], não .Items
+            // IInventory na 1.6 usa .Count e [i]
             for (int i = 0; i < bin.Count; i++)
             {
                 var item = bin[i];
                 if (item != null && IsEquipment(item))
                 {
+                    // Troca o item real pelo fake para o jogo calcular o preço corretamente
                     bin[i] = new FakeShippableObject(item);
                 }
             }
@@ -65,16 +64,31 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 2: Permite que o baú de venda aceite o item na UI ---
+    // --- PATCH 2: Permite colocar na caixa de venda (CORRIGIDO PARA 1.6) ---
     [HarmonyPatch]
     public static class CanAcceptItemPatch
     {
         static System.Reflection.MethodBase TargetMethod()
         {
-            return AccessTools.GetDeclaredMethods(typeof(StardewValley.Object))
-                .FirstOrDefault(m => m.Name == "CanAcceptItem" && m.GetParameters().Length >= 1 && m.GetParameters()[0].ParameterType == typeof(Item));
+            // CORREÇÃO DO CRASH: Procura em Chest primeiro, se não achar, tenta em Object
+            var typesToCheck = new[] { typeof(Chest), typeof(StardewValley.Object) };
+            
+            foreach (var type in typesToCheck)
+            {
+                var method = AccessTools.GetDeclaredMethods(type)
+                    .FirstOrDefault(m => m.Name == "CanAcceptItem" 
+                                      && m.GetParameters().Length >= 1 
+                                      && m.GetParameters()[0].ParameterType == typeof(Item));
+                if (method != null)
+                {
+                    ModEntry.Instance?.Monitor.Log($"[VenderEquipamentos] CanAcceptItem encontrado em {type.Name}", LogLevel.Trace);
+                    return method;
+                }
+            }
+            throw new Exception("CanAcceptItem não encontrado (1.6.15 mudou a assinatura novamente).");
         }
 
+        // REGRA DE OURO 1.6: Usar object[] __args para não quebrar assinaturas
         static void Postfix(StardewValley.Object __instance, object[] __args, ref bool __result)
         {
             if (__result) return;
@@ -127,28 +141,6 @@ namespace VenderEquipamentos
 
             __result = item; // Baú cheio
             return false;
-        }
-    }
-
-    // --- Objeto Falso: Faz o jogo 1.6 calcular o preço e mostrar a textura corretamente ---
-    public class FakeShippableObject : StardewValley.Object
-    {
-        private readonly Item originalItem;
-
-        public FakeShippableObject(Item item) : base("390", item.Stack) // 390 = Pedra (ID base válido)
-        {
-            this.originalItem = item;
-            this.Name = item.Name;
-            this.Price = Math.Max(1, item.salePrice());
-            this.Category = -1; // Misc
-            this.Stack = item.Stack;
-        }
-
-        public override string DisplayName => originalItem.DisplayName;
-
-        public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-        {
-            this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
         }
     }
 }
