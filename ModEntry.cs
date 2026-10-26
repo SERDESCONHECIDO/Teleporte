@@ -47,7 +47,7 @@ namespace VenderEquipamentos
     {
         private readonly Item originalItem;
 
-        public FakeShippableObject(Item item) : base()
+        public FakeShippableObject(Item item) : base("390", item.Stack)
         {
             this.originalItem = item;
             this.Name = item.Name;
@@ -66,14 +66,14 @@ namespace VenderEquipamentos
     [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
     public static class ShippingMenuParseItemsPatch
     {
-        static void Postfix(IList items, ref List<List<Item>> ___categoryItems, ref List<int> ___categoryTotals, ref Dictionary<Item, int> ___itemValues, ref Dictionary<Item, int> ___singleItemValues)
+        // CORREÇÃO: IList items -> IList<Item> items
+        static void Postfix(IList<Item> items, ref List<List<Item>> ___categoryItems, ref List<int> ___categoryTotals, ref Dictionary<Item, int> ___itemValues, ref Dictionary<Item, int> ___singleItemValues)
         {
             const int miscCategory = 4; // Categoria "Diversos"
             const int totalCategory = 5; // Categoria "Total"
 
-            foreach (var obj in items)
+            foreach (var item in items)
             {
-                if (obj is not Item item) continue;
                 if (item is StardewValley.Object) continue; // Já processado pelo jogo
                 if (!ModEntry.IsEquipment(item)) continue;
 
