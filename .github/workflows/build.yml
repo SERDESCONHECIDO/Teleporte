@@ -23,13 +23,15 @@ jobs:
         mkdir -p /home/runner/game
         cd /home/runner/game
         
-        # Baixa o SMAPI 4.1.10
-        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10-installer.zip
-        unzip -q SMAPI-4.1.10-installer.zip
+        # 1. Baixa o SMAPI (URL CORRIGIDA: for-developers em vez do zip inexistente)
+        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10-for-developers.zip
+        unzip -q SMAPI-4.1.10-for-developers.zip -d SMAPI
+        cp SMAPI/*.dll .
         
-        # Baixa as DLLs base do jogo (Via repositório de referência para Actions)
-        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10.zip
-        unzip -q SMAPI-4.1.10.zip -d SMAPI
+        # 2. Baixa o Stardew Valley.dll (Cópia pública usada para CI)
+        # Se este link falhar, baixe o "Stardew Valley.dll" do seu PC e suba para o seu GitHub.
+        # Depois troque a URL abaixo por: wget -q https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/StardewValley.dll
+        wget -q -O StardewValley.dll https://github.com/WeDias/StardewValley-1.6/raw/main/StardewValley.dll
         
     - name: Restaurar dependências
       run: dotnet restore
