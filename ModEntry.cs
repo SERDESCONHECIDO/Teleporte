@@ -38,20 +38,21 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 2: Permite que a UI do baú aceite o item ---
-    [HarmonyPatch(typeof(Chest), nameof(Chest.canAcceptItem))]
-    public static class ChestCanAcceptItemPatch
+    // --- PATCH 2: Permite que a UI do baú aceite o item (via Object.canAcceptItem) ---
+    [HarmonyPatch(typeof(StardewValley.Object), nameof(StardewValley.Object.canAcceptItem))]
+    public static class ObjectCanAcceptItemPatch
     {
-        static void Postfix(Chest __instance, Item item, Farmer who, ref bool __result)
+        static void Postfix(StardewValley.Object __instance, Item item, Farmer who, ref bool __result)
         {
             if (__result) return;
 
-            var shippingBin = Game1.getFarm().getShippingBin(Game1.player) as Chest;
-            if (shippingBin == null || __instance != shippingBin || item == null) return;
-
-            if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
+            // Verifica se o objeto é o baú de venda
+            if (__instance is Chest chest && chest == Game1.getFarm().getShippingBin(Game1.player) as Chest)
             {
-                __result = true;
+                if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
+                {
+                    __result = true;
+                }
             }
         }
     }
@@ -127,7 +128,6 @@ namespace VenderEquipamentos
     {
         static System.Reflection.MethodBase TargetMethod()
         {
-            // Encontra o construtor do ShippingMenu que recebe uma lista de itens
             return AccessTools.GetDeclaredConstructors(typeof(ShippingMenu))
                 .FirstOrDefault(c => c.GetParameters().Any(p => typeof(IList<Item>).IsAssignableFrom(p.ParameterType)));
         }
