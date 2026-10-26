@@ -1,26 +1,45 @@
 name: Build Mod
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
+    - name: Checkout do código
+      uses: actions/checkout@v4
+
+    - name: Configurar .NET SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0.x'
-    - name: Clonar Assemblies
-      run: git clone --depth 1 https://github.com/StardewModders/mod-reference-assemblies.git "$HOME/StardewValley"
-    - name: Compilar
-      run: dotnet build VenderEquipamentos.csproj -c Release
-    - name: Empacotar
+        dotnet-version: '8.0.x'
+
+    - name: Baixar Stardew Valley 1.6.15 e SMAPI
       run: |
-        mkdir -p Mod_Pronto
-        cp manifest.json Mod_Pronto/
-        cp bin/Release/net6.0/VenderEquipamentos.dll Mod_Pronto/
-    - name: Salvar Zip
+        mkdir -p /home/runner/game
+        cd /home/runner/game
+        
+        # Baixa o SMAPI 4.1.10
+        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10-installer.zip
+        unzip -q SMAPI-4.1.10-installer.zip
+        
+        # Baixa as DLLs base do jogo (Via repositório de referência para Actions)
+        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10.zip
+        unzip -q SMAPI-4.1.10.zip -d SMAPI
+        
+    - name: Restaurar dependências
+      run: dotnet restore
+
+    - name: Compilar o Mod
+      run: |
+        dotnet build -c Release /p:GamePath="/home/runner/game" /p:EnableModDeploy=false
+
+    - name: Fazer Upload do Mod
       uses: actions/upload-artifact@v4
       with:
-        name: VenderEquipamentos-Mod
-        path: Mod_Pronto/
+        name: VenderEquipamentos-Android
+        path: bin/Release/net8.0/VenderEquipamentos.dll
