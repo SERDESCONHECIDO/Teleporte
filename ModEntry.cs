@@ -1,97 +1,129 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
-using StardewModdingAPI.Events;
 using StardewValley;
-using StardewValley.GameData.Objects;
+using StardewValley.Menus;
+using StardewValley.Objects;
+using StardewValley.Tools;
 
-namespace AnelDoPescador
+namespace VenderEquipamentos
 {
     public class ModEntry : Mod
     {
-        private const string RingName = "AnelDoPescador_Item";
-        private const string RingQualifiedId = "(O)" + RingName;
-
         public override void Entry(IModHelper helper)
         {
-            helper.Events.Content.AssetRequested += OnAssetRequested;
-            helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
-
             var harmony = new Harmony(this.ModManifest.UniqueID);
             harmony.PatchAll();
         }
+    }
 
-        private void OnAssetRequested(object sender, AssetRequestedEventArgs e)
+    // --- PATCH 1: Permite que o item seja reconhecido como vendável ---
+    [HarmonyPatch(typeof(Item), nameof(Item.canBeShipped))]
+    public static class ItemCanBeShippedPatch
+    {
+        static void Postfix(Item __instance, ref bool __result)
         {
-            if (e.NameWithoutLocale.IsEquivalentTo("Data/Objects"))
+            if (__result) return;
+
+            if (__instance is MeleeWeapon || __instance is Slingshot || 
+                __instance is Boots || __instance is Ring ||
+                __instance.QualifiedItemId?.StartsWith("(TR)") == true)
             {
-                e.Edit(asset =>
-                {
-                    var data = asset.AsDictionary<string, ObjectData>().Data;
-                    data[RingName] = new ObjectData
-                    {
-                        Name = RingName,
-                        DisplayName = "Anel do Pescador",
-                        Description = "Duplica a quantidade de peixes pescados.",
-                        Type = "Ring",
-                        Category = -96, 
-                        Price = 5000,
-                        Texture = "Maps/springobjects",
-                        SpriteIndex = 526, // Textura do Anel do Ladrão
-                        CanBeGivenAsGift = true,
-                        CanBeTrashed = true
-                    };
-                });
+                __result = true;
             }
-        }
-
-        private void OnSaveLoaded(object sender, SaveLoadedEventArgs e)
-        {
-            // Dá o anel ao jogador caso ele não tenha (para testes)
-            if (!Game1.player.Items.Any(i => i?.QualifiedItemId == RingQualifiedId))
-            {
-                var ring = new StardewValley.Objects.Ring(RingName);
-                Game1.player.addItemToInventory(ring);
-                this.Monitor.Log("Anel do Pescador adicionado ao inventario.", LogLevel.Info);
-            }
-        }
-
-        internal static bool HasRingEquipped()
-        {
-            if (Game1.player == null) return false;
-            return Game1.player.leftRing.Value?.QualifiedItemId == RingQualifiedId || 
-                   Game1.player.rightRing.Value?.QualifiedItemId == RingQualifiedId;
         }
     }
 
-    // --- PATCH: Duplica o peixe ao terminar a pescaria ---
-    [HarmonyPatch]
-    public static class FishingDuplicationPatch
+    // --- PATCH 2: Força a colocação do item no baú de venda ---
+    [HarmonyPatch(typeof(Chest), nameof(Chest.addItem))]
+    public static class ChestAddItemPatch
     {
-        static System.Reflection.MethodBase TargetMethod()
+        static bool Prefix(Chest __instance, Item item, ref bool __result)
         {
-            // Encontra o método 'doDoneFishing' na classe FishingRod
-            return AccessTools.GetDeclaredMethods(typeof(StardewValley.Tools.FishingRod))
-                .FirstOrDefault(m => m.Name == "doDoneFishing");
+            // Se não for a caixa de venda ou o item for nulo, segue o fluxo normal
+            if (!__instance.shippingBin || item == null) return true;
+
+            // Se for um equipamento, nós o colocamos manualmente no baú
+            if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
+            {
+                // Tenta empilhar (embora equipamentos não empilhem, alguns trinkets podem)
+                for (int i = 0; i < __instance.Items.Count; i++)
+                {
+                    if (__instance.Items[i] != null && __instance.Items[i].canStackWith(item))
+                    {
+                        int amount = Math.Min(item.Stack, __instance.Items[i].maximumStackSize() - __instance.Items[i].Stack);
+                        if (amount > 0)
+                        {
+                            __instance.Items[i].Stack += amount;
+                            item.Stack -= amount;
+                            if (item.Stack <= 0)
+                            {
+                                __result = true;
+                                return false; // Ignora o método original do jogo
+                            }
+                        }
+                    }
+                }
+                
+                // Procura um slot vazio no baú
+                for (int i = 0; i < __instance.Items.Count; i++)
+                {
+                    if (__instance.Items[i] == null)
+                    {
+                        __instance.Items[i] = item;
+                        __result = true;
+                        return false; // Ignora o método original do jogo
+                    }
+                }
+                
+                __result = false; // O baú de venda está cheio
+                return false;
+            }
+            return true; // Outros itens seguem o fluxo normal do jogo
+        }
+    }
+
+    // --- Objeto "Falso" para exibir equipamentos no menu de resumo do final do dia ---
+    public class FakeShippableObject : StardewValley.Object
+    {
+        private readonly Item originalItem;
+
+        public FakeShippableObject(Item item) : base("390", item.Stack)
+        {
+            this.originalItem = item;
+            this.Name = item.Name;
+            this.Price = item.salePrice(); 
+            this.Category = -1; // Misc
         }
 
-        static void Postfix(StardewValley.Tools.FishingRod __instance, object[] __args)
+        public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
         {
-            // Usa object[] para ser imune a mudanças de assinatura na 1.6
-            Farmer who = __args.OfType<Farmer>().FirstOrDefault();
-            Item fish = __args.OfType<Item>().FirstOrDefault();
+            this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
+        }
+    }
 
-            // Proteções básicas
-            if (who == null || fish == null) return;
-            if (!ModEntry.HasRingEquipped()) return;
-
-            // Categoria -4 é a categoria oficial de "Peixe" no jogo
-            if (fish.Category == -4)
+    // --- PATCH 3: Adiciona os equipamentos ao menu de resumo do final do dia ---
+    [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
+    public static class ShippingMenuParseItemsPatch
+    {
+        static void Prefix(ShippingMenu __instance, IList<Item> items)
+        {
+            for (int i = 0; i < items.Count; i++)
             {
-                // Adiciona uma cópia do peixe no inventário
-                who.addItemToInventory(fish.getOne());
-                Game1.showGlobalMessage("O Anel do Pescador duplicou o seu peixe!");
+                var item = items[i];
+                
+                bool isEquipment = item is MeleeWeapon || item is Slingshot || 
+                                   item is Boots || item is Ring ||
+                                   item.QualifiedItemId?.StartsWith("(TR)") == true;
+
+                if (isEquipment)
+                {
+                    items[i] = new FakeShippableObject(item);
+                }
             }
         }
     }
