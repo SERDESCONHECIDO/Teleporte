@@ -1,6 +1,6 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -14,8 +14,11 @@ namespace VenderEquipamentos
 {
     public class ModEntry : Mod
     {
+        public static ModEntry Instance { get; private set; }
+
         public override void Entry(IModHelper helper)
         {
+            Instance = this;
             var harmony = new Harmony(this.ModManifest.UniqueID);
             harmony.PatchAll();
         }
@@ -28,7 +31,7 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 1: Permite que o item seja reconhecido como vendável ---
+    // --- PATCH 1: Permite que o item seja reconhecido como vendável pela UI ---
     [HarmonyPatch(typeof(Item), nameof(Item.canBeShipped))]
     public static class ItemCanBeShippedPatch
     {
@@ -39,128 +42,110 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 2: Permite que o inventário do baú aceite equipamentos (via reflexão) ---
-    [HarmonyPatch]
-    public static class InventoryCanAcceptItemPatch
+    // --- PATCH 2: Destaca equipamentos como vendáveis no inventário ---
+    [HarmonyPatch(typeof(Utility), nameof(Utility.highlightShippableObjects))]
+    public static class HighlightShippablePatch
     {
-        static IEnumerable<System.Reflection.MethodBase> TargetMethods()
+        static bool Prefix(ref bool __result)
         {
-            var invType = AccessTools.TypeByName("StardewValley.Inventories.Inventory");
-            if (invType == null) yield break;
-            
-            var method = AccessTools.GetDeclaredMethods(invType)
-                .FirstOrDefault(m => m.Name == "CanAcceptItem" 
-                    && m.GetParameters().Length >= 2 
-                    && m.GetParameters()[0].ParameterType == typeof(Item));
-            
-            if (method != null) yield return method;
-        }
-
-        static void Postfix(object[] __args, ref bool __result)
-        {
-            if (__result) return;
-            
-            Item item = __args.OfType<Item>().FirstOrDefault();
-            if (item == null || !ModEntry.IsEquipment(item)) return;
-
-            if (Game1.activeClickableMenu is ItemGrabMenu menu && menu.context is Chest chest)
-            {
-                var shippingBin = Game1.getFarm()?.getShippingBin(Game1.player) as Chest;
-                if (shippingBin != null && chest == shippingBin)
-                {
-                    __result = true;
-                }
-            }
-        }
-    }
-
-    // --- PATCH 3: Força a colocação do item no baú (Automate/UI) ---
-    [HarmonyPatch(typeof(Chest), nameof(Chest.addItem))]
-    public static class ChestAddItemPatch
-    {
-        static bool Prefix(Chest __instance, Item item, ref Item __result)
-        {
-            var farm = Game1.getFarm();
-            if (farm == null) return true;
-            
-            var shippingBin = farm.getShippingBin(Game1.player) as Chest;
-            if (shippingBin == null || __instance != shippingBin || item == null) return true;
-            if (!ModEntry.IsEquipment(item)) return true;
-
-            var inv = __instance.Items;
-            for (int i = 0; i < inv.Count; i++)
-            {
-                if (inv[i] != null && inv[i].canStackWith(item))
-                {
-                    int amount = Math.Min(item.Stack, inv[i].maximumStackSize() - inv[i].Stack);
-                    if (amount > 0)
-                    {
-                        inv[i].Stack += amount;
-                        item.Stack -= amount;
-                        if (item.Stack <= 0) { __result = null; return false; }
-                    }
-                }
-            }
-
-            for (int i = 0; i < inv.Count; i++)
-            {
-                if (inv[i] == null)
-                {
-                    inv[i] = item;
-                    __result = null;
-                    return false;
-                }
-            }
-
-            __result = item;
+            __result = true;
             return false;
         }
     }
 
-    // --- PATCH 4: Substitui equipamentos por objetos "falsos" no menu de resumo ---
-    [HarmonyPatch]
-    public static class ShippingMenuCtorPatch
-    {
-        static System.Reflection.MethodBase TargetMethod()
-        {
-            return AccessTools.GetDeclaredConstructors(typeof(ShippingMenu))
-                .FirstOrDefault(c => c.GetParameters().Any(p => typeof(IList<Item>).IsAssignableFrom(p.ParameterType)));
-        }
-
-        static void Prefix(object[] __args)
-        {
-            foreach (var arg in __args)
-            {
-                if (arg is IList<Item> items)
-                {
-                    for (int i = 0; i < items.Count; i++)
-                    {
-                        if (ModEntry.IsEquipment(items[i]))
-                        {
-                            items[i] = new FakeShippableObject(items[i]);
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
+    // --- Objeto "Falso" para desenhar a textura correta no menu de resumo ---
     public class FakeShippableObject : StardewValley.Object
     {
         private readonly Item originalItem;
 
-        public FakeShippableObject(Item item) : base("390", item.Stack)
+        public FakeShippableObject(Item item) : base()
         {
             this.originalItem = item;
             this.Name = item.Name;
-            this.Price = item.salePrice();
-            this.Category = -1;
+            this.Price = Math.Max(1, item.salePrice());
+            this.Category = -1; // Misc
+            this.Stack = item.Stack;
         }
 
         public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
         {
             this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
+        }
+    }
+
+    // --- PATCH 3: Processa os equipamentos no painel de resumo do final do dia ---
+    [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
+    public static class ShippingMenuParseItemsPatch
+    {
+        static void Postfix(IList items, ref List<List<Item>> ___categoryItems, ref List<int> ___categoryTotals, ref List<ClickableTextureComponent> ___categoryDials, ref Dictionary<Item, int> ___itemValues, ref Dictionary<Item, int> ___singleItemValues)
+        {
+            const int miscCategory = 4; // Categoria "Diversos"
+            const int totalCategory = 5; // Categoria "Total"
+
+            foreach (var obj in items)
+            {
+                if (obj is not Item item) continue;
+                if (item is StardewValley.Object) continue; // Já processado pelo jogo
+                if (!ModEntry.IsEquipment(item)) continue;
+
+                try
+                {
+                    var fake = new FakeShippableObject(item);
+                    int sellPrice = fake.salePrice();
+                    int totalPrice = sellPrice * fake.Stack;
+
+                    ___categoryItems[miscCategory].Add(fake);
+                    ___categoryItems[totalCategory].Add(fake);
+                    ___categoryTotals[miscCategory] += totalPrice;
+                    ___categoryTotals[totalCategory] += totalPrice;
+                    ___itemValues[fake] = totalPrice;
+                    ___singleItemValues[fake] = sellPrice;
+
+                    Game1.stats.ItemsShipped += (uint)fake.Stack;
+                    if (fake.countsForShippedCollection())
+                        Game1.player.shippedBasic(fake.ItemId, fake.Stack);
+                }
+                catch (Exception ex)
+                {
+                    ModEntry.Instance.Monitor.Log($"Erro ao processar equipamento: {ex}", LogLevel.Error);
+                }
+            }
+
+            // Atualiza os mostradores do menu
+            ___categoryDials[miscCategory].previousTargetValue = ___categoryDials[miscCategory].currentValue = ___categoryTotals[miscCategory];
+            ___categoryDials[totalCategory].currentValue = ___categoryTotals[totalCategory];
+            Game1.setRichPresence("earnings", ___categoryTotals[totalCategory]);
+        }
+    }
+
+    // --- PATCH 4: Adiciona o dinheiro extra na virada do dia ---
+    [HarmonyPatch(typeof(Game1), "_newDayAfterFade")]
+    public static class NewDayAfterFadePatch
+    {
+        static void Prefix()
+        {
+            if (Game1.player == null) return;
+
+            var shippingBin = Game1.getFarm()?.getShippingBin(Game1.player);
+            if (shippingBin == null) return;
+
+            int extraGained = 0;
+            foreach (var item in shippingBin)
+            {
+                if (item == null || item is StardewValley.Object) continue;
+                if (!ModEntry.IsEquipment(item)) continue;
+
+                try
+                {
+                    extraGained += Math.Max(1, item.salePrice()) * item.Stack;
+                }
+                catch { }
+            }
+
+            if (extraGained > 0)
+            {
+                Game1.player.Money += extraGained;
+            }
         }
     }
 }
