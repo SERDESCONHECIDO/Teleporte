@@ -1,6 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -31,7 +31,7 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 1: Permite que o item seja reconhecido como vendável pela UI ---
+    // --- PATCH 1: Permite que o item seja reconhecido como vendável ---
     [HarmonyPatch(typeof(Item), nameof(Item.canBeShipped))]
     public static class ItemCanBeShippedPatch
     {
@@ -42,18 +42,7 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 2: Destaca equipamentos como vendáveis no inventário ---
-    [HarmonyPatch(typeof(Utility), nameof(Utility.highlightShippableObjects))]
-    public static class HighlightShippablePatch
-    {
-        static bool Prefix(ref bool __result)
-        {
-            __result = true;
-            return false;
-        }
-    }
-
-    // --- Objeto "Falso" para desenhar a textura correta no menu de resumo ---
+    // --- Objeto "Falso" para o menu de resumo ---
     public class FakeShippableObject : StardewValley.Object
     {
         private readonly Item originalItem;
@@ -73,11 +62,11 @@ namespace VenderEquipamentos
         }
     }
 
-    // --- PATCH 3: Processa os equipamentos no painel de resumo do final do dia ---
+    // --- PATCH 2: Adiciona os equipamentos ao menu de resumo ---
     [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
     public static class ShippingMenuParseItemsPatch
     {
-        static void Postfix(IList items, ref List<List<Item>> ___categoryItems, ref List<int> ___categoryTotals, ref List<ClickableTextureComponent> ___categoryDials, ref Dictionary<Item, int> ___itemValues, ref Dictionary<Item, int> ___singleItemValues)
+        static void Postfix(IList items, ref List<List<Item>> ___categoryItems, ref List<int> ___categoryTotals, ref Dictionary<Item, int> ___itemValues, ref Dictionary<Item, int> ___singleItemValues)
         {
             const int miscCategory = 4; // Categoria "Diversos"
             const int totalCategory = 5; // Categoria "Total"
@@ -110,15 +99,10 @@ namespace VenderEquipamentos
                     ModEntry.Instance.Monitor.Log($"Erro ao processar equipamento: {ex}", LogLevel.Error);
                 }
             }
-
-            // Atualiza os mostradores do menu
-            ___categoryDials[miscCategory].previousTargetValue = ___categoryDials[miscCategory].currentValue = ___categoryTotals[miscCategory];
-            ___categoryDials[totalCategory].currentValue = ___categoryTotals[totalCategory];
-            Game1.setRichPresence("earnings", ___categoryTotals[totalCategory]);
         }
     }
 
-    // --- PATCH 4: Adiciona o dinheiro extra na virada do dia ---
+    // --- PATCH 3: Adiciona o dinheiro extra na virada do dia ---
     [HarmonyPatch(typeof(Game1), "_newDayAfterFade")]
     public static class NewDayAfterFadePatch
     {
