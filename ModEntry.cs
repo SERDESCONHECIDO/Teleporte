@@ -37,15 +37,15 @@ namespace VenderEquipamentos
     [HarmonyPatch(typeof(Chest), nameof(Chest.addItem))]
     public static class ChestAddItemPatch
     {
-        static bool Prefix(Chest __instance, Item item, ref bool __result)
+        // CORREÇÃO: O parâmetro __result agora é do tipo Item, como no jogo 1.6
+        static bool Prefix(Chest __instance, Item item, ref Item __result)
         {
-            // CORREÇÃO 1.6: Faz o cast para Chest para comparar os objetos
             var shippingBin = Game1.getFarm().getShippingBin(Game1.player) as Chest;
-            
             if (shippingBin == null || __instance != shippingBin || item == null) return true;
 
             if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
             {
+                // Tenta empilhar (embora equipamentos raramente empilhem)
                 for (int i = 0; i < __instance.Items.Count; i++)
                 {
                     if (__instance.Items[i] != null && __instance.Items[i].canStackWith(item))
@@ -57,24 +57,25 @@ namespace VenderEquipamentos
                             item.Stack -= amount;
                             if (item.Stack <= 0)
                             {
-                                __result = true;
+                                __result = null; // null significa sucesso (item totalmente adicionado)
                                 return false; 
                             }
                         }
                     }
                 }
                 
+                // Procura um slot vazio no baú
                 for (int i = 0; i < __instance.Items.Count; i++)
                 {
                     if (__instance.Items[i] == null)
                     {
                         __instance.Items[i] = item;
-                        __result = true;
+                        __result = null; // null significa sucesso
                         return false; 
                     }
                 }
                 
-                __result = false; 
+                __result = item; // Retorna o item se o baú estiver cheio
                 return false;
             }
             return true;
