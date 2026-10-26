@@ -2,8 +2,9 @@
   "Name": "Vender Equipamentos",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Permite vender armas, botas, aneis e amuletos na caixa de venda normal.",
+  "Description": "Permite vender armas, botas, anéis e amuletos na caixa de venda normal.",
   "UniqueID": "SeuNome.VenderEquipamentos",
   "EntryDll": "VenderEquipamentos.dll",
-  "MinimumApiVersion": "4.0.0"
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
 }
