@@ -1,12 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using HarmonyLib;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
-using StardewValley.Menus;
 using StardewValley.Objects;
 using StardewValley.Tools;
 
@@ -29,29 +24,24 @@ namespace VenderEquipamentos
         {
             if (__result) return;
 
-            // Libera armas, botas e anéis
             if (__instance is MeleeWeapon || __instance is Slingshot || 
-                __instance is Boots || __instance is Ring)
-            {
-                __result = true;
-                return;
-            }
-
-            // Libera trinkets via prefixo de ID (evita usar a classe Trinket que não existe no Android)
-            if (__instance.QualifiedItemId?.StartsWith("(TR)") == true)
+                __instance is Boots || __instance is Ring ||
+                __instance.QualifiedItemId?.StartsWith("(TR)") == true)
             {
                 __result = true;
             }
         }
     }
 
-    // --- PATCH 2: Força a colocação do item no baú de venda (impede de voltar pra mochila) ---
+    // --- PATCH 2: Força a colocação do item no baú de venda ---
     [HarmonyPatch(typeof(Chest), nameof(Chest.addItem))]
     public static class ChestAddItemPatch
     {
         static bool Prefix(Chest __instance, Item item, ref bool __result)
         {
-            if (!__instance.shippingBin || item == null) return true;
+            // Usa a API correta da 1.6 para obter a caixa de venda
+            Chest shippingBin = Game1.getFarm().getShippingBin(Game1.player);
+            if (__instance != shippingBin || item == null) return true;
 
             if (item is MeleeWeapon || item is Slingshot || item is Boots || item is Ring || item.QualifiedItemId?.StartsWith("(TR)") == true)
             {
@@ -87,47 +77,6 @@ namespace VenderEquipamentos
                 return false;
             }
             return true;
-        }
-    }
-
-    // --- Objeto "Falso" para exibir equipamentos no menu de resumo ---
-    public class FakeShippableObject : StardewValley.Object
-    {
-        private readonly Item originalItem;
-
-        public FakeShippableObject(Item item) : base("390", item.Stack)
-        {
-            this.originalItem = item;
-            this.Name = item.Name;
-            this.Price = item.salePrice(); 
-            this.Category = -1; 
-        }
-
-        public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-        {
-            this.originalItem.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
-        }
-    }
-
-    // --- PATCH 3: Adiciona os equipamentos ao menu de resumo do final do dia ---
-    [HarmonyPatch(typeof(ShippingMenu), "parseItems")]
-    public static class ShippingMenuParseItemsPatch
-    {
-        static void Prefix(ShippingMenu __instance, IList<Item> items)
-        {
-            for (int i = 0; i < items.Count; i++)
-            {
-                var item = items[i];
-                
-                bool isEquipment = item is MeleeWeapon || item is Slingshot || 
-                                   item is Boots || item is Ring ||
-                                   item.QualifiedItemId?.StartsWith("(TR)") == true;
-
-                if (isEquipment)
-                {
-                    items[i] = new FakeShippableObject(item);
-                }
-            }
         }
     }
 }
