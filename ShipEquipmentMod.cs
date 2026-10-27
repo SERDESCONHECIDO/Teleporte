@@ -59,15 +59,25 @@ namespace ShipEquipment
                     int price = item.sellToStorePrice();
                     if (price <= 0) price = 100; // fallback para equipamentos sem preço base
 
-                    // CORRIGIDO: StardewValley.Object totalmente qualificado para evitar ambiguidade com System.Object
-                    var fakeItem = new StardewValley.Object(item.ParentSheetIndex, item.Stack)
+                    try
                     {
-                        Price = price,
-                        Name = item.DisplayName
-                    };
+                        // CORRIGIDO: 1.6 usa string itemId, não int ParentSheetIndex
+                        var fakeItem = new StardewValley.Object(item.ItemId, item.Stack)
+                        {
+                            Price = price,
+                            Name = item.DisplayName
+                        };
 
-                    __result = __instance.addItem(fakeItem);
-                    return false;
+                        if (fakeItem != null)
+                        {
+                            __result = __instance.addItem(fakeItem);
+                            return false;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ModMonitor?.Log($"Falha ao converter {item.DisplayName} em Object vendável: {ex.Message}", LogLevel.Warn);
+                    }
                 }
             }
             return true;
