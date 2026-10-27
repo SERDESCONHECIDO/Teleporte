@@ -1,44 +1,41 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>VenderEquipamentos</AssemblyName>
-    <RootNamespace>VenderEquipamentos</RootNamespace>
-    <Version>1.0.0</Version>
-    <Nullable>disable</Nullable>
+    <TargetFramework>net6.0</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <EnableModDeploy>false</EnableModDeploy>
+    <AssemblyName>ShipEquipment</AssemblyName>
+    <RootNamespace>ShipEquipment</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ShipEquipmentMod.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referências manuais conforme Prompt Mestre v2.0 -->
     <Reference Include="Stardew Valley">
-      <HintPath>$(GamePath)/Stardew Valley.dll</HintPath>
+      <HintPath>libs/Stardew Valley.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="StardewModdingAPI">
-      <HintPath>$(GamePath)/StardewModdingAPI.dll</HintPath>
+      <HintPath>libs/StardewModdingAPI.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    
-    <!-- AQUI ESTÁ A CORREÇÃO: Adicionado a referência do Toolkit (IManifest) -->
     <Reference Include="SMAPI.Toolkit.CoreInterfaces">
-      <HintPath>$(GamePath)/SMAPI.Toolkit.CoreInterfaces.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="StardewValley.GameData">
-      <HintPath>$(GamePath)/StardewValley.GameData.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="xTile">
-      <HintPath>$(GamePath)/xTile.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="0Harmony">
-      <HintPath>$(GamePath)/0Harmony.dll</HintPath>
+      <HintPath>libs/SMAPI.Toolkit.CoreInterfaces.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="MonoGame.Framework">
-      <HintPath>$(GamePath)/MonoGame.Framework.dll</HintPath>
+      <HintPath>libs/MonoGame.Framework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="xTile">
+      <HintPath>libs/xTile.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>libs/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
