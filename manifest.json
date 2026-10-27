@@ -1,10 +1,9 @@
 {
-  "Name": "Vender Equipamentos",
+  "Name": "Ship Equipment",
   "Author": "SeuNome",
   "Version": "1.0.0",
-  "Description": "Permite vender armas, botas, anéis e amuletos na caixa de venda normal.",
-  "UniqueID": "SeuNome.VenderEquipamentos",
-  "EntryDll": "VenderEquipamentos.dll",
-  "MinimumApiVersion": "4.0.0",
-  "UpdateKeys": []
+  "Description": "Permite vender anéis, botas, armas e amuletos na caixa de venda.",
+  "UniqueID": "seunome.shipequipment",
+  "EntryDll": "ShipEquipment.dll",
+  "MinimumApiVersion": "4.0.0"
 }
