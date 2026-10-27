@@ -18,21 +18,22 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Baixar Stardew Valley 1.6.15 e SMAPI
+    - name: Preparar Dependências (SMAPI e Jogo)
       run: |
         mkdir -p /home/runner/game
         cd /home/runner/game
         
-        # 1. Baixa o SMAPI (URL CORRIGIDA: for-developers em vez do zip inexistente)
+        # 1. Baixa o SMAPI oficial
         wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10-for-developers.zip
-        unzip -q SMAPI-4.1.10-for-developers.zip -d SMAPI
-        cp SMAPI/*.dll .
+        unzip -q SMAPI-4.1.10-for-developers.zip -d SMAPI_Temp
+        cp SMAPI_Temp/*.dll .
         
-        # 2. Baixa o Stardew Valley.dll (Cópia pública usada para CI)
-        # Se este link falhar, baixe o "Stardew Valley.dll" do seu PC e suba para o seu GitHub.
-        # Depois troque a URL abaixo por: wget -q https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/StardewValley.dll
-        wget -q -O StardewValley.dll https://github.com/WeDias/StardewValley-1.6/raw/main/StardewValley.dll
-        
+        # 2. Baixa o Stardew Valley.dll de um novo espelho público (Versão 1.6)
+        wget -q -O "Stardew Valley.dll" https://github.com/Pathoschild/SMAPI/raw/develop/src/SMAPI.Tests/TestGame/Stardew%20Valley.dll
+
+        # 3. Verifica se os arquivos estão na pasta
+        ls -la
+
     - name: Restaurar dependências
       run: dotnet restore
 
