@@ -18,21 +18,23 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Preparar Dependências (SMAPI e Jogo)
+    - name: Preparar Dependências (Referências da Comunidade)
       run: |
+        # Cria a pasta 'game' que o seu .csproj espera
         mkdir -p /home/runner/game
         cd /home/runner/game
-        
-        # 1. Baixa o SMAPI oficial
-        wget -q https://github.com/Pathoschild/SMAPI/releases/download/4.1.10/SMAPI-4.1.10-for-developers.zip
-        unzip -q SMAPI-4.1.10-for-developers.zip -d SMAPI_Temp
-        cp SMAPI_Temp/*.dll .
-        
-        # 2. Baixa o Stardew Valley.dll de um novo espelho público (Versão 1.6)
-        wget -q -O "Stardew Valley.dll" https://github.com/Pathoschild/SMAPI/raw/develop/src/SMAPI.Tests/TestGame/Stardew%20Valley.dll
 
-        # 3. Verifica se os arquivos estão na pasta
-        ls -la
+        # 1. Baixa o repositório oficial de referências para CI
+        wget -q https://github.com/StardewModders/mod-reference-assemblies/archive/refs/heads/main.zip
+        unzip -q main.zip
+
+        # 2. Copia todas as DLLs necessárias para a pasta 'game'
+        #    (Isso inclui Stardew Valley.dll, SMAPI, Harmony, xTile, etc.)
+        cp mod-reference-assemblies-main/*.dll .
+        cp mod-reference-assemblies-main/smapi-internal/*.dll .
+
+        # 3. Verifica se os arquivos essenciais estão no lugar
+        ls -la | grep "Stardew Valley.dll"
 
     - name: Restaurar dependências
       run: dotnet restore
