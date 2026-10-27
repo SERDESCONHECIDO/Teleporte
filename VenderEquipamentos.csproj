@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Referências manuais para evitar falhas de compilação no Android/GitHub Actions -->
+    <!-- Referências manuais essenciais -->
     <Reference Include="Stardew Valley">
       <HintPath>$(GamePath)/Stardew Valley.dll</HintPath>
       <Private>false</Private>
@@ -19,12 +19,21 @@
       <HintPath>$(GamePath)/StardewModdingAPI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="StardewValley.GameData">
+      <HintPath>$(GamePath)/StardewValley.GameData.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="xTile">
       <HintPath>$(GamePath)/xTile.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="0Harmony">
       <HintPath>$(GamePath)/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- AQUI ESTÁ A CORREÇÃO: Adicionado o MonoGame para o XNA (SpriteBatch, Vector2, etc) -->
+    <Reference Include="MonoGame.Framework">
+      <HintPath>$(GamePath)/MonoGame.Framework.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
