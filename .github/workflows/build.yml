@@ -1,49 +1,45 @@
-name: Build Mod
+name: Build Android Mod
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout do código
-      uses: actions/checkout@v4
+      - name: Checkout do código
+        uses: actions/checkout@v4
 
-    - name: Configurar .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Configurar .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
 
-    - name: Preparar Dependências (Referências da Comunidade)
-      run: |
-        mkdir -p /home/runner/game
-        cd /home/runner/game
+      - name: Baixar DLLs de referência oficiais (mod-reference-assemblies)
+        run: |
+          wget -q https://github.com/StardewModders/mod-reference-assemblies/archive/refs/heads/main.zip -O refs.zip
+          unzip -q refs.zip
+          # Copia as DLLs necessárias para a pasta libs/ (nomes em minúsculo no repositório)
+          mkdir -p libs
+          # O pacote extrai em uma pasta com nome variável; localizamos os arquivos
+          find mod-reference-assemblies-main -name "Stardew Valley.dll" -exec cp {} libs/ \;
+          find mod-reference-assemblies-main -name "StardewModdingAPI.dll" -exec cp {} libs/ \;
+          find mod-reference-assemblies-main -name "SMAPI.Toolkit.CoreInterfaces.dll" -exec cp {} libs/ \;
+          find mod-reference-assemblies-main -name "MonoGame.Framework.dll" -exec cp {} libs/ \;
+          find mod-reference-assemblies-main -name "xTile.dll" -exec cp {} libs/ \;
+          find mod-reference-assemblies-main -name "0Harmony.dll" -exec cp {} libs/ \;
 
-        # 1. Baixa o repositório oficial de referências para CI
-        wget -q https://github.com/StardewModders/mod-reference-assemblies/archive/refs/heads/main.zip
-        unzip -q main.zip
+      - name: Compilar
+        run: dotnet build --configuration Release
 
-        # 2. Copia todas as DLLs necessárias (incluindo o MonoGame)
-        cp mod-reference-assemblies-main/*.dll .
-        cp mod-reference-assemblies-main/smapi-internal/*.dll .
+      - name: Empacotar mod
+        run: |
+          mkdir -p dist/ShipEquipment
+          cp bin/Release/net6.0/ShipEquipment.dll dist/ShipEquipment/
+          cp manifest.json dist/ShipEquipment/
+          cd dist && zip -r ShipEquipment.zip ShipEquipment/
 
-        # 3. Verifica se os arquivos essenciais estão no lugar
-        echo "--- Arquivos baixados ---"
-        ls -la | grep -E "Stardew Valley.dll|MonoGame.Framework.dll|StardewModdingAPI.dll"
-
-    - name: Restaurar dependências
-      run: dotnet restore
-
-    - name: Compilar o Mod
-      run: |
-        dotnet build -c Release /p:GamePath="/home/runner/game" /p:EnableModDeploy=false
-
-    - name: Fazer Upload do Mod
-      uses: actions/upload-artifact@v4
-      with:
-        name: VenderEquipamentos-Android
-        path: bin/Release/net8.0/VenderEquipamentos.dll
+      - name: Upload do Artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShipEquipment-Mod
+          path: dist/ShipEquipment.zip
