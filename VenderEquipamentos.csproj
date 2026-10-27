@@ -10,7 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Referências manuais essenciais -->
     <Reference Include="Stardew Valley">
       <HintPath>$(GamePath)/Stardew Valley.dll</HintPath>
       <Private>false</Private>
@@ -19,6 +18,13 @@
       <HintPath>$(GamePath)/StardewModdingAPI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    
+    <!-- AQUI ESTÁ A CORREÇÃO: Adicionado a referência do Toolkit (IManifest) -->
+    <Reference Include="SMAPI.Toolkit.CoreInterfaces">
+      <HintPath>$(GamePath)/SMAPI.Toolkit.CoreInterfaces.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
     <Reference Include="StardewValley.GameData">
       <HintPath>$(GamePath)/StardewValley.GameData.dll</HintPath>
       <Private>false</Private>
@@ -31,7 +37,6 @@
       <HintPath>$(GamePath)/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- AQUI ESTÁ A CORREÇÃO: Adicionado o MonoGame para o XNA (SpriteBatch, Vector2, etc) -->
     <Reference Include="MonoGame.Framework">
       <HintPath>$(GamePath)/MonoGame.Framework.dll</HintPath>
       <Private>false</Private>
