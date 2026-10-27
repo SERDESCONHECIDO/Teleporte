@@ -20,7 +20,6 @@ jobs:
 
     - name: Preparar Dependências (Referências da Comunidade)
       run: |
-        # Cria a pasta 'game' que o seu .csproj espera
         mkdir -p /home/runner/game
         cd /home/runner/game
 
@@ -28,13 +27,13 @@ jobs:
         wget -q https://github.com/StardewModders/mod-reference-assemblies/archive/refs/heads/main.zip
         unzip -q main.zip
 
-        # 2. Copia todas as DLLs necessárias para a pasta 'game'
-        #    (Isso inclui Stardew Valley.dll, SMAPI, Harmony, xTile, etc.)
+        # 2. Copia todas as DLLs necessárias (incluindo o MonoGame)
         cp mod-reference-assemblies-main/*.dll .
         cp mod-reference-assemblies-main/smapi-internal/*.dll .
 
         # 3. Verifica se os arquivos essenciais estão no lugar
-        ls -la | grep "Stardew Valley.dll"
+        echo "--- Arquivos baixados ---"
+        ls -la | grep -E "Stardew Valley.dll|MonoGame.Framework.dll|StardewModdingAPI.dll"
 
     - name: Restaurar dependências
       run: dotnet restore
