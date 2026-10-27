@@ -2,7 +2,6 @@ using System;
 using HarmonyLib;
 using StardewModdingAPI;
 using StardewValley;
-using StardewValley.Inventories;
 using StardewValley.Objects;
 using StardewValley.Tools;
 
@@ -17,26 +16,26 @@ namespace ShipEquipment
             ModMonitor = this.Monitor;
             var harmony = new Harmony(this.ModManifest.UniqueID);
 
-            // 1. Libera a validação lógica do item para envio
+            // 1. Permite que equipamentos sejam enviados (lógica de "shippable")
             harmony.Patch(
                 original: AccessTools.Method(typeof(Item), nameof(Item.canBeShipped)),
                 postfix: new HarmonyMethod(typeof(ModEntry), nameof(CanBeShipped_Postfix))
             );
 
-            // 2. Permite a inserção física na Caixa de Venda (convertendo para Object falso)
-            harmony.Patch(
-                original: AccessTools.Method(typeof(Chest), nameof(Chest.addItem)),
-                prefix: new HarmonyMethod(typeof(ModEntry), nameof(ChestAddItem_Prefix))
-            );
-
-            // 3. Força o destaque visual (obrigatório para arrastar no Android)
+            // 2. Força o destaque visual na mochila (essencial para arrastar no Android)
             harmony.Patch(
                 original: AccessTools.Method(typeof(Utility), nameof(Utility.highlightShippableObjects)),
                 postfix: new HarmonyMethod(typeof(ModEntry), nameof(HighlightShippable_Postfix))
             );
+
+            // 3. Garante que o equipamento tenha um preço de venda válido no final do dia
+            harmony.Patch(
+                original: AccessTools.Method(typeof(Item), nameof(Item.sellToStorePrice)),
+                postfix: new HarmonyMethod(typeof(ModEntry), nameof(SellToStorePrice_Postfix))
+            );
         }
 
-        // --- PATCH 1: Lógica de envio ---
+        // --- PATCH 1: Permite o envio ---
         private static void CanBeShipped_Postfix(Item __instance, ref bool __result)
         {
             if (Game1.player == null || __result) return;
@@ -47,43 +46,7 @@ namespace ShipEquipment
             }
         }
 
-        // --- PATCH 2: Inserção na Caixa (converte equipamento em Object falso vendável) ---
-        private static bool ChestAddItem_Prefix(Chest __instance, Item item, ref Item __result)
-        {
-            if (Game1.player == null || item == null) return true;
-
-            if (__instance == Game1.getFarm().getShippingBin(Game1.player))
-            {
-                if (item is Ring || item is Boots || item is MeleeWeapon || item is Tool)
-                {
-                    int price = item.sellToStorePrice();
-                    if (price <= 0) price = 100; // fallback para equipamentos sem preço base
-
-                    try
-                    {
-                        // CORRIGIDO: 1.6 usa string itemId, não int ParentSheetIndex
-                        var fakeItem = new StardewValley.Object(item.ItemId, item.Stack)
-                        {
-                            Price = price,
-                            Name = item.DisplayName
-                        };
-
-                        if (fakeItem != null)
-                        {
-                            __result = __instance.addItem(fakeItem);
-                            return false;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ModMonitor?.Log($"Falha ao converter {item.DisplayName} em Object vendável: {ex.Message}", LogLevel.Warn);
-                    }
-                }
-            }
-            return true;
-        }
-
-        // --- PATCH 3: Destaque visual (via reflexão, pois o campo não é público na 1.6.15) ---
+        // --- PATCH 2: Destaque na UI (arrastar) ---
         private static void HighlightShippable_Postfix()
         {
             if (Game1.player == null) return;
@@ -91,6 +54,7 @@ namespace ShipEquipment
             var shippingBin = Game1.getFarm().getShippingBin(Game1.player);
             if (shippingBin == null) return;
 
+            // Acessa o campo privado que controla o brilho do item
             var highlightField = AccessTools.FieldRefAccess<Item, bool>("isHighlightedInShop");
 
             for (int i = 0; i < shippingBin.Count; i++)
@@ -99,6 +63,21 @@ namespace ShipEquipment
                 if (item is Ring || item is Boots || item is MeleeWeapon || item is Tool)
                 {
                     highlightField(item) = true;
+                }
+            }
+        }
+
+        // --- PATCH 3: Preço de venda ---
+        private static void SellToStorePrice_Postfix(Item __instance, ref int __result)
+        {
+            if (Game1.player == null) return;
+
+            // Se for um equipamento e o preço calculado for 0, usa o salePrice como fallback.
+            if (__instance is Ring || __instance is Boots || __instance is MeleeWeapon || __instance is Tool)
+            {
+                if (__result <= 0)
+                {
+                    __result = Math.Max(1, __instance.salePrice());
                 }
             }
         }
